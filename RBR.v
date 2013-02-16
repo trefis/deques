@@ -40,9 +40,7 @@ Lemma z_invert_t :
   forall n, regular n <-> regular (zero (two n)).
 Proof.
   split ; intro.
-    unfold regular. split.
-      simpl. trivial.
-      simpl. assumption.
+    unfold regular. split ; simpl ; trivial.
 
     unfold regular in H. inversion H. clear H. clear H0.
     unfold semi_regular in H1. fold semi_regular in H1.
@@ -115,14 +113,11 @@ Qed.
 
 Lemma ones_are_useless : forall n, regular n <-> regular (one n).
 Proof.
-  split ; intros.
+  split ; intros ; inversion H.
     (* -> *)
-    inversion H. constructor ; simpl ; assumption.
+    constructor ; simpl ; assumption.
     (* <- *)
-    inversion H. 
-    unfold z_before_t in H0. fold z_before_t in H0.
-    unfold semi_regular in H1. fold semi_regular in H1.
-    assumption.
+    simpl in *. assumption.
 Qed.
 
 Theorem succ_result_is_regular : forall n, forall proof, regular (succ n proof).
@@ -133,8 +128,7 @@ Proof.
     auto.
     (* n = 2 * n' *)
     simpl. unfold regular in proof. inversion proof.
-    unfold semi_regular in H0. fold semi_regular in H0.
-    apply regular_after_regularize in H0. inversion H0.
+    simpl in *. apply regular_after_regularize in H0. inversion H0.
     constructor ; simpl ; assumption.
     (* n = 2 * n' + 1 *)
     simpl. destruct n.
@@ -149,13 +143,13 @@ Theorem succ_valid :
   forall n, forall p, S (back_to_nat 0 n) = back_to_nat 0 (succ n p).
 Proof.
   intros.
-  destruct n.
+  destruct n ; simpl.
     (* n = 0 *)
-    simpl. reflexivity.
+    reflexivity.
     (* n = 2 * n' *)
-    simpl. rewrite regularize_valid. reflexivity.
+    rewrite regularize_valid. reflexivity.
     (* n = 2 * n' + 1 *)
-    simpl. destruct n ; auto.
+    destruct n ; auto.
     (* n = 2 * n' + 2 *)
     inversion p. inversion H.
 Qed.
