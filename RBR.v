@@ -83,11 +83,6 @@ Proof.
       unfold z_before_t in H0. exfalso. assumption.
 Qed.
 
-Lemma plus_reg_l_inv : forall n m p:nat, n = m -> p + n = p + m.
-Proof. 
-  intros; subst; reflexivity. 
-Qed.
-
 Require Import Omega.
 
 Theorem regularize_valid :
