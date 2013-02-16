@@ -84,7 +84,11 @@ Proof.
 Qed.
 
 Lemma plus_reg_l_inv : forall n m p:nat, n = m -> p + n = p + m.
-Admitted. (* why isn't plus_reg_l an equivalence in the Coq stdlib ? *)
+Proof. 
+  intros; subst; reflexivity. 
+Qed.
+
+Require Import Omega.
 
 Theorem regularize_valid :
   forall n, forall i, back_to_nat i n = back_to_nat i (regularize n).
@@ -96,7 +100,7 @@ Proof.
     destruct n.
       auto.
       auto.
-      simpl. admit. (* can't apply plus_n_O nor plus_reg_l_inv :/ *)
+      simpl. omega. 
       simpl. trivial.
 Qed.
 
