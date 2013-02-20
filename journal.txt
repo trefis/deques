@@ -1,0 +1,11 @@
+Wed Feb 20 17:20:52 CET 2013
+
+Fait:
+- une version de l'incrémentation d'un compteur binaire redondant
+  mais pas en temps constant.
+
+- la technique du triangle sert à aider Program à insérer des
+  coercions.
+
+À faire:
+- la même en temps constant.
