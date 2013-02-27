@@ -1,3 +1,13 @@
+Wed Feb 27 17:42:41 CET 2013
+
+Fait:
+- une version du compteur binaire avec incrémentation en temps
+  constant (non récursif).
+
+A faire:
+- rendre plus clair le code et la preuve en décomposant "succ"
+  en un unsafe_succ et une fonction de régularisation.
+
 Wed Feb 20 17:20:52 CET 2013
 
 Fait:
