@@ -29,6 +29,8 @@ Fixpoint digits (n : RBR) :=
   | x :: xs => 1 + length x + digits xs
   end.
 
+(* Est-ce [aux] ne peut pas s'exprimer de façon plus simple
+   à l'aide de deux itérations imbriquées? *)
 Function aux (n : RBR) (i : nat) {measure digits n } : nat :=
   match n with
   | nil => 0
@@ -71,6 +73,10 @@ Definition regular (n : RBR) :=
 
 Local Obligation Tactic := (program_simpl; intuition; firstorder ; try discriminate).
 
+(* 
+   - introduire une notion de "toplevel (semi) regular stack"
+   - externaliser la régularisation
+ *)
 Program Definition succ (n : RBR) (p : regular n) : { r : RBR | regular r } :=
   match n with
   | nil => [[one]]
@@ -163,14 +169,6 @@ Proof.
     apply H0 with (ones := l) (stacks := n); auto.
 Qed.
 
-Definition ugly (e : { n : RBR | regular n }) :=
-  match e with
-  | exist n _ => n
-  end.
-
-Lemma plus_reg_inv : forall n m p, n = m -> p + n = p + m.
-Proof. intros ; subst ; reflexivity. Qed.
-
 Ltac my_simpl := simpl ; unfold back_to_nat ; repeat rewrite aux_equation ; simpl.
 
 Ltac unfold_once := rewrite aux_equation ; symmetry ; rewrite aux_equation ; symmetry.
@@ -199,13 +197,15 @@ Proof.
   induction l ; intros.
     unfold_once ; assumption.
 
-    unfold_once. apply plus_reg_inv. apply IHl.
+    unfold_once. f_equal. 
+
+    apply IHl.
     repeat rewrite test. rewrite H. reflexivity.
 Qed.
 
 Theorem succ_valid :
   forall n : RBR, forall p : regular n,
-    back_to_nat (ugly (succ n p)) = S (back_to_nat n).
+    back_to_nat (proj1_sig (succ n p)) = S (back_to_nat n).
 Proof.
   intros.
   destruct n. my_simpl ; reflexivity.
