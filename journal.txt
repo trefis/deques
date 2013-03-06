@@ -1,3 +1,14 @@
+Wed Mar  6 17:32:43 CET 2013
+
+Fait:
+- ce qui était prévu.
+
+À faire:
+- essayer d'avoir une première pré-implémentation.
+- la fonctoriser par rapport à l'implémentation des buffers.
+- pour les preuves d'équivalence entre concaténations de listes,
+  voir: http://gallium.inria.fr/~braibant/aac_tactics/
+
 Wed Feb 27 17:42:41 CET 2013
 
 Fait:
