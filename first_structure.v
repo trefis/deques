@@ -149,17 +149,20 @@ Module Deque (B : Finite_buffer).
     | nil => False
     | [ Stack.One_level 0 0 _ _ ] => True (* ad-hoc case: the deque is empty *)
     | stack :: stacks =>
-      match Stack.top_color stack with
-      | Red => False
-      | Green => Stack.regular stack /\ semi_regular stacks
-      | Yellow => Stack.regular stack /\ semi_regular stacks /\  green_first stacks
-      end
+      let green_before_red :=
+        match Stack.top_color stack with
+        | Red => False
+        | Green => True
+        | Yellow => green_first stacks
+        end
+      in
+      green_before_red /\ Stack.regular stack /\ semi_regular stacks
     end.
 
   Program Definition empty (A : Set) : { d : t A | regular d } :=
     [ Stack.One_level (B.empty A) (B.empty A) ].
 
-  Program Definition push (A : Set) (elt : A) (d : t A) (p : regular d) : t A :=
+  Program Definition dirty_push (A : Set) (elt : A) (d : t A) (p : regular d) : t A :=
     match d with
     | nil => !
     | stack :: stacks => (Stack.push elt stack _) :: stacks
@@ -170,7 +173,7 @@ Module Deque (B : Finite_buffer).
     intuition.
     destruct stacks, stack; destruct m, n ; solve [ 
       auto |
-      (left ; intros ; unfold regular in p ; rewrite H in p ; trivial)
+      (left ; intros ; unfold regular in p ; rewrite H in p ; firstorder)
     ].
   Qed.
 
