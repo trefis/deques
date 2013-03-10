@@ -167,15 +167,12 @@ Module Deque (B : Finite_buffer).
     end.
 
   Next Obligation.
+  Proof.
     intuition.
-    destruct stack.
-      left ; intros.
-      unfold regular in p.
-      rewrite H in p.
-      trivial.
+    destruct stacks, stack; destruct m, n ; solve [ 
+      auto |
+      (left ; intros ; unfold regular in p ; rewrite H in p ; trivial)
+    ].
+  Qed.
 
-      destruct stacks.
-        destruct m, n ; auto.
-          unfold regular in p.
-          destruct (Stack.top_color (Stack.One_level t0 t1)) ; firstorder.
 End Deque.
