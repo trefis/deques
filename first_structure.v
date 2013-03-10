@@ -120,14 +120,13 @@ Module Deque (B : Finite_buffer).
 
   Definition t (A : Set) := list (Stack.t A).
 
-  Fixpoint green_first (A : Set) (d : t A) : Prop :=
+  Definition green_first (A : Set) (d : t A) : Prop :=
     match d with
     | nil => True
     | stack :: stacks =>
       match Stack.top_color stack with
       | Green => True
-      | Yellow => green_first stacks
-      | Red => False
+      | _ => False
       end
     end.
 
