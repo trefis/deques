@@ -161,8 +161,15 @@ Module Deque (B : Finite_buffer).
 
   Definition regular (A : Set) (d : t A) : Prop :=
     match d with
-    | mynil => False
-    | mycons (Stack.One_level 0 0 _ _) mynil => True (* ad-hoc case: the deque is empty *)
+    | mynil => False (* because fuck you, that's why *)
+    (* ad-hoc case: the deque is empty *)
+    (* Note: that case is problematic, because of it we can't prove that adding
+     *   a yellow level on top of a regular deque doesn't break regularity.
+     *   We know that it doesn't because there won't ever be an empty level in
+     *   the middle (or at the bottom rather) of the structure. But Coq doesn't
+     *   know that... *)
+    | mycons (Stack.One_level 0 0 _ _) mynil => True
+    (* general case *)
     | mycons stack stacks =>
       let green_before_red :=
         match Stack.top_color stack with
@@ -187,7 +194,7 @@ Module Deque (B : Finite_buffer).
   Next Obligation.
   Proof.
     intuition.
-    destruct stacks, stack; destruct m, n ; solve [ 
+    destruct stacks, stack; destruct m, n ; solve [
       auto |
       (left ; intros ; unfold regular in H ; rewrite H0 in H ; firstorder)
     ].
