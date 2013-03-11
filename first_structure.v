@@ -134,6 +134,16 @@ Module Deque (B : Finite_buffer).
     | mynil : t A
     | mycons : forall s : Stack.t A, t (Stack.type_of_last_lvl s) -> t A.
 
+  Fixpoint no_yellow_on_top (A : Set) (d : t A) : Prop :=
+    match d with
+    | mynil => True
+    | mycons stack stacks =>
+      match Stack.top_color stack with
+      | Yellow => False
+      | _ => no_yellow_on_top stacks
+      end
+    end.
+
   Fixpoint green_first (A : Set) (d : t A) : Prop :=
     match d with
     | mynil => True
@@ -159,9 +169,23 @@ Module Deque (B : Finite_buffer).
       Stack.regular stack /\ semi_regular stacks /\ green_before_red
     end.
 
-  Definition regular (A : Set) (d : t A) : Prop :=
+  Lemma semi_impl_noyellow :
+    forall A, forall d : t A, semi_regular d -> no_yellow_on_top d.
+  Proof.
+    intros.
+    admit. (* TODO *)
+  Qed.
+
+  Definition strongly_regular (A : Set) (d : t A) : Prop :=
     match d with
     | mynil => False (* because fuck you, that's why *)
+    | mycons _ stacks =>
+      green_first d /\ semi_regular d /\ no_yellow_on_top stacks
+    end.
+
+  Definition regular (A : Set) (d : t A) : Prop :=
+    match d with
+    | mynil => False (* same reason as in strongly_regular *)
     (* ad-hoc case: the deque is empty *)
     (* Note: that case is problematic, because of it we can't prove that adding
      *   a yellow level on top of a regular deque doesn't break regularity.
@@ -170,15 +194,11 @@ Module Deque (B : Finite_buffer).
      *   know that... *)
     | mycons (Stack.One_level 0 0 _ _) mynil => True
     (* general case *)
-    | mycons stack stacks =>
-      let green_before_red :=
-        match Stack.top_color stack with
-        | Red => False
-        | Green => True
-        | Yellow => green_first stacks
-        end
-      in
-      green_before_red /\ Stack.regular stack /\ semi_regular stacks
+    | mycons yellow_stack stacks =>
+      match Stack.top_color yellow_stack with
+      | Yellow => strongly_regular stacks
+      | _ => strongly_regular d
+      end
     end.
 
   Program Definition empty (A : Set) : { d : t A | regular d } :=
@@ -196,7 +216,9 @@ Module Deque (B : Finite_buffer).
     intuition.
     destruct stacks, stack; destruct m, n ; solve [
       auto |
-      (left ; intros ; unfold regular in H ; rewrite H0 in H ; firstorder)
+      (left ; intros; unfold regular in H ; rewrite H0 in H; 
+      unfold strongly_regular in H; intuition; unfold green_first in H1;
+      rewrite H0 in H1; apply H1)
     ].
   Qed.
 
@@ -204,6 +226,76 @@ Module Deque (B : Finite_buffer).
   Proof.
     autorewrite with stack.
     exact H.
+  Qed.
+
+  Program Definition do_regularize (A : Set) (d : t A) (p : semi_regular d) :
+    { d : t A | strongly_regular d } :=
+    !.
+
+  Admit Obligations.
+
+  Program Definition regularize (A : Set) (top_stack : Stack.t A)
+    (rest : t (Stack.type_of_last_lvl top_stack) | semi_regular rest)
+    (H0 : Stack.top_color top_stack = Red -> green_first rest)
+    (H1 : Stack.regular top_stack) :
+    { d : t A | regular d } :=
+        match Stack.top_color top_stack with
+        | Green => mycons top_stack rest
+        | Yellow => mycons top_stack (do_regularize rest _)
+        | Red => do_regularize (mycons top_stack rest) _
+        end.
+
+  Next Obligation.
+  Proof.
+    destruct top_stack.
+      rewrite <- Heq_anonymous ; firstorder.
+      apply semi_impl_noyellow ; auto.
+
+      destruct m, n ; rewrite <- Heq_anonymous ; firstorder ; solve [
+        (apply semi_impl_noyellow ; auto) |
+        (destruct rest ; [ firstorder | firstorder ;
+        simpl; (* destruct (Stack.top_color s). doesn't work *) admit])
+      ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct top_stack ; firstorder; rewrite <- Heq_anonymous.
+      exact (proj2_sig (do_regularize rest H)).
+
+      destruct m, n ; try solve [ (exact (proj2_sig (do_regularize rest H))) ].
+      destruct (` (do_regularize rest H)) eqn:Heq; auto.
+      rewrite <- Heq ; exact (proj2_sig (do_regularize rest H)).
+  Qed.
+
+  Next Obligation.
+  Proof.
+    intuition.
+    rewrite <- Heq_anonymous.
+    auto.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    Lemma strongr_impl_r :
+      forall A, forall d : t A, strongly_regular d -> regular d.
+    Proof.
+      intros.
+      destruct d ; auto.
+      destruct s ; firstorder ; unfold regular.
+        destruct (Stack.top_color (Stack.Top t0 t1 s)) eqn:Color ; firstorder.
+          destruct (Stack.top_color (Stack.Top t0 t1 s)) ; auto.
+            discriminate Color. discriminate Color.
+          destruct (Stack.top_color (Stack.Top t0 t1 s)) ; auto.
+            discriminate Color.
+
+        (* FIXME: why doesn't [ (destruct d ; auto) | .. ] work? *)
+        destruct m, n ; [ (destruct d ; auto) | idtac | idtac | idtac ];
+          destruct (Stack.top_color (Stack.One_level t0 t1)) eqn:Color ; firstorder;
+            rewrite Color ; auto.
+    Qed.
+    apply strongr_impl_r.
+    exact ( proj2_sig ( do_regularize (mycons top_stack rest) _) ).
   Qed.
 
 End Deque.
