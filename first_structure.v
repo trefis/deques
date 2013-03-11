@@ -116,14 +116,26 @@ Module Deque (B : Finite_buffer).
         destruct (B.color prefix) ; auto ; try discriminate.
     Qed.
 
+    Fixpoint type_of_last_lvl (A : Set) (s : t A) : Set :=
+      match s with
+      | One_level _ _ _ _ => A
+      | Top _ _ _ _ rest => type_of_last_lvl rest
+      end.
+
+    Theorem push_on_regular_does_not_deepen :
+      forall A : Set, forall x : A, forall s : t A, forall p,
+        type_of_last_lvl s = type_of_last_lvl (push x s p).
+    Proof. destruct s ; auto. Qed.
   End Stack.
 
-  Definition t (A : Set) := list (Stack.t A).
+  Inductive t (A : Set) : Set :=
+    | mynil : t A
+    | mycons : forall s : Stack.t A, t (Stack.type_of_last_lvl s) -> t A.
 
   Definition green_first (A : Set) (d : t A) : Prop :=
     match d with
-    | nil => True
-    | stack :: stacks =>
+    | mynil => True
+    | mycons stack _ =>
       match Stack.top_color stack with
       | Green => True
       | _ => False
@@ -132,8 +144,8 @@ Module Deque (B : Finite_buffer).
 
   Fixpoint semi_regular (A : Set) (d : t A) : Prop :=
     match d with
-    | nil => True
-    | stack :: stacks =>
+    | mynil => True
+    | mycons stack stacks =>
       let green_before_red :=
         match Stack.top_color stack with
         | Green => True
@@ -146,9 +158,9 @@ Module Deque (B : Finite_buffer).
 
   Definition regular (A : Set) (d : t A) : Prop :=
     match d with
-    | nil => False
-    | [ Stack.One_level 0 0 _ _ ] => True (* ad-hoc case: the deque is empty *)
-    | stack :: stacks =>
+    | mynil => False
+    | mycons (Stack.One_level 0 0 _ _) mynil => True (* ad-hoc case: the deque is empty *)
+    | mycons stack stacks =>
       let green_before_red :=
         match Stack.top_color stack with
         | Red => False
@@ -160,12 +172,13 @@ Module Deque (B : Finite_buffer).
     end.
 
   Program Definition empty (A : Set) : { d : t A | regular d } :=
-    [ Stack.One_level (B.empty A) (B.empty A) ].
+    let singleton := Stack.One_level (B.empty A) (B.empty A) in
+    mycons singleton (mynil (Stack.type_of_last_lvl singleton)).
 
   Program Definition dirty_push (A : Set) (elt : A) (d : t A) (p : regular d) : t A :=
     match d with
-    | nil => !
-    | stack :: stacks => (Stack.push elt stack _) :: stacks
+    | mynil => !
+    | mycons stack stacks => mycons (Stack.push elt stack _) ((fun _ => _) stacks)
     end.
 
   Next Obligation.
@@ -175,6 +188,14 @@ Module Deque (B : Finite_buffer).
       auto |
       (left ; intros ; unfold regular in p ; rewrite H in p ; firstorder)
     ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    rewrite <- Stack.push_on_regular_does_not_deepen with
+      (x := elt)
+      (p := dirty_push_obligation_2 elt p eq_refl).
+    exact H.
   Qed.
 
 End Deque.
