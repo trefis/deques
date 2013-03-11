@@ -175,7 +175,7 @@ Module Deque (B : Finite_buffer).
     let singleton := Stack.One_level (B.empty A) (B.empty A) in
     mycons singleton (mynil (Stack.type_of_last_lvl singleton)).
 
-  Program Definition dirty_push (A : Set) (elt : A) (d : t A) (p : regular d) : t A :=
+  Program Definition dirty_push (A : Set) (elt : A) (d : t A | regular d) : t A :=
     match d with
     | mynil => !
     | mycons stack stacks => mycons (Stack.push elt stack _) ((fun _ => _) stacks)
@@ -186,7 +186,7 @@ Module Deque (B : Finite_buffer).
     intuition.
     destruct stacks, stack; destruct m, n ; solve [ 
       auto |
-      (left ; intros ; unfold regular in p ; rewrite H in p ; firstorder)
+      (left ; intros ; unfold regular in H ; rewrite H0 in H ; firstorder)
     ].
   Qed.
 
@@ -194,7 +194,9 @@ Module Deque (B : Finite_buffer).
   Proof.
     rewrite <- Stack.push_on_regular_does_not_deepen with
       (x := elt)
-      (p := dirty_push_obligation_2 elt p eq_refl).
+      (p := dirty_push_obligation_2 elt
+              (exist (fun d : t A => regular d) (mycons stack stacks) H0)
+              eq_refl).
     exact H.
   Qed.
 
