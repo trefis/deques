@@ -134,13 +134,14 @@ Module Deque (B : Finite_buffer).
     | mynil : t A
     | mycons : forall s : Stack.t A, t (Stack.type_of_last_lvl s) -> t A.
 
-  Definition green_first (A : Set) (d : t A) : Prop :=
+  Fixpoint green_first (A : Set) (d : t A) : Prop :=
     match d with
     | mynil => True
-    | mycons stack _ =>
+    | mycons stack stacks =>
       match Stack.top_color stack with
       | Green => True
-      | _ => False
+      | Yellow => green_first stacks
+      | Red => False
       end
     end.
 
