@@ -126,6 +126,8 @@ Module Deque (B : Finite_buffer).
       forall A : Set, forall x : A, forall s : t A, forall p,
         type_of_last_lvl s = type_of_last_lvl (push x s p).
     Proof. destruct s ; auto. Qed.
+
+    Hint Rewrite <- push_on_regular_does_not_deepen : stack.
   End Stack.
 
   Inductive t (A : Set) : Set :=
@@ -192,11 +194,7 @@ Module Deque (B : Finite_buffer).
 
   Next Obligation.
   Proof.
-    rewrite <- Stack.push_on_regular_does_not_deepen with
-      (x := elt)
-      (p := dirty_push_obligation_2 elt
-              (exist (fun d : t A => regular d) (mycons stack stacks) H0)
-              eq_refl).
+    autorewrite with stack.
     exact H.
   Qed.
 
