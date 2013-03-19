@@ -51,7 +51,9 @@ Module Type Finite_buffer.
     forall A, forall n, forall buff : t A n,
       color buff <> Red -> n < max_len.
 
-  Axiom empty_is_red_contr :
+  Axiom empty_is_red : forall A, forall buff : t A 0, color buff = Red.
+
+  Axiom empty_is_red_contr : (* yes, I'm lazy *)
     forall A, forall n, forall buff : t A n,
       color buff <> Red -> n > 0.
 End Finite_buffer.
@@ -64,6 +66,11 @@ Module Deque (B : Finite_buffer).
 
     Definition top_color (A : Set) (stack : t A) :=
       match stack with
+      (* limit case *)
+      | One_level 0 _ buff _
+      | One_level _ 0 _ buff => B.color buff
+
+      (* general case *)
       | One_level _ _ hd tl
       | Top _ _ hd tl _ => min_color (B.color hd) (B.color tl)
       end.
@@ -100,11 +107,12 @@ Module Deque (B : Finite_buffer).
     Next Obligation.
     Proof.
       intuition.
-        simpl in H.
         apply B.full_is_red_contr with (A := A) (buff := prefix).
-        destruct (B.color prefix) ; auto ; try discriminate.
+        destruct m, n ; simpl in H ; firstorder.
+          rewrite B.empty_is_red in H ; auto.
+          destruct (B.color prefix) ; auto ; try discriminate.
 
-        destruct n ; firstorder.
+        destruct n; firstorder.
         apply B.max_len_positive.
     Qed.
 
