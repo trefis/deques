@@ -230,8 +230,7 @@ Module Deque (B : Finite_buffer).
   Program Definition do_regularize (A : Set) (d : t A) (p : semi_regular d) :
     { d : t A | strongly_regular d } :=
     match d with
-    (* If I put [!] here it doesn't type :( *)
-    | mynil => exist (fun x => strongly_regular x) ((fun _ => _) mynil) _
+    | mynil => (fun _ => _) mynil
     | mycons top_stack stacks =>
       match top_stack with
       | _ => !
