@@ -178,14 +178,16 @@ Module Deque (B : Finite_buffer).
 
   Definition strongly_regular (A : Set) (d : t A) : Prop :=
     match d with
-    | mynil => False (* because fuck you, that's why *)
+    | mynil => True (* we won't be able to implement [do_regularize] otherwise. *)
+    (* Unless we add another trillion of ad-hoc cases, of course. But that
+     * should be enough. Also, I'm hoping it doesn't break anything elsewhere. *)
     | mycons _ stacks =>
       green_first d /\ semi_regular d /\ no_yellow_on_top stacks
     end.
 
   Definition regular (A : Set) (d : t A) : Prop :=
     match d with
-    | mynil => False (* same reason as in strongly_regular *)
+    | mynil => True (* same reason as in [strongly_regular]. *)
     (* ad-hoc case: the deque is empty *)
     | mycons (Stack.One_level 0 0 _ _) mynil => True
     (* general case *)
@@ -202,7 +204,9 @@ Module Deque (B : Finite_buffer).
 
   Program Definition dirty_push (A : Set) (elt : A) (d : t A | regular d) : t A :=
     match d with
-    | mynil => !
+    | mynil =>
+      let singleton := Stack.One_level (B.empty A) (B.empty A) in
+      mycons (Stack.push elt singleton _) ((fun _ => _) mynil)
     | mycons stack stacks => mycons (Stack.push elt stack _) ((fun _ => _) stacks)
     end.
 
