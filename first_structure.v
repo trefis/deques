@@ -187,11 +187,6 @@ Module Deque (B : Finite_buffer).
     match d with
     | mynil => False (* same reason as in strongly_regular *)
     (* ad-hoc case: the deque is empty *)
-    (* Note: that case is problematic, because of it we can't prove that adding
-     *   a yellow level on top of a regular deque doesn't break regularity.
-     *   We know that it doesn't because there won't ever be an empty level in
-     *   the middle (or at the bottom rather) of the structure. But Coq doesn't
-     *   know that... *)
     | mycons (Stack.One_level 0 0 _ _) mynil => True
     (* general case *)
     | mycons yellow_stack stacks =>
