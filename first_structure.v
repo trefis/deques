@@ -60,49 +60,60 @@ End Finite_buffer.
 
 Module Deque (B : Finite_buffer).
   Module Stack.
+    Inductive lvl (A : Set) :=
+      | Lvl : forall m n, B.t A m -> B.t A n -> lvl A.
+
     Inductive t (A : Set) : Set :=
-      | Top : forall m n, B.t A m -> B.t A n -> t (A * A) -> t A
-      | One_level : forall m n, B.t A m -> B.t A n -> t A.
+      | Empty : t A
+      | Cons  : lvl A -> t (A * A) -> t A.
+
+    Definition lvl_color (A : Set) (lvl : lvl A) :=
+      match lvl with
+      (* limit case *)
+      | Lvl 0 _ buff _
+      | Lvl _ 0 _ buff => B.color buff
+      (* general case *)
+      | Lvl _ _ prefix suffix => min_color (B.color prefix) (B.color suffix)
+      end.
 
     Definition top_color (A : Set) (stack : t A) :=
       match stack with
-      (* limit case *)
-      | One_level 0 _ buff _
-      | One_level _ 0 _ buff => B.color buff
-
-      (* general case *)
-      | One_level _ _ hd tl
-      | Top _ _ hd tl _ => min_color (B.color hd) (B.color tl)
+      | Empty => Red
+      | Cons toplvl _ => lvl_color toplvl
       end.
 
     Definition regular (A : Set) (s : t A) :=
       let all_yellows :=
-        fix f (B : Set) (lvl : t B) : Prop :=
-          top_color lvl = Yellow /\
-          (match lvl with
-          | Top _ _ _ _ rest => f (prod B B) rest
-          | _ => True
-          end)
+        fix f (B : Set) (s : t B) : Prop :=
+          match s with
+          | Empty => True
+          | Cons lvl rest => (lvl_color lvl = Yellow) /\ f (prod B B) rest
+          end
       in
       match s with
-      | Top _ _ _ _ yellows => all_yellows (prod A A) yellows
-      | _ => True
+      | Empty => True (* FIXME: why not False? *)
+      | Cons _ yellows => all_yellows (prod A A) yellows
       end.
 
     Definition is_empty (A : Set) (s : t A) :=
       match s with
-      | One_level 0 0 _ _ => True
+      | Cons (Lvl 0 0 _ _) Empty  => True
       | _ => False
       end.
+
+    Program Definition empty (A : Set) : { s : t A | regular s } :=
+      Cons (Lvl (B.empty A) (B.empty A)) (Empty (prod A A)).
 
     Program Definition push (A : Set) (elt : A) (s : t A)
       (p : top_color s <> Red \/ is_empty s) : t A :=
       match s with
-      | One_level n m prefix suffix =>
-        One_level (B.push _ elt prefix) suffix
-      | Top n m prefix suffix rest =>
-        Top (B.push _ elt prefix) suffix rest
+      | Empty => !
+      | Cons (Lvl n m prefix suffix) rest =>
+        Cons (Lvl (B.push _ elt prefix) suffix) rest
       end.
+
+    Next Obligation.
+    Proof. intuition. Qed.
 
     Next Obligation.
     Proof.
@@ -116,36 +127,37 @@ Module Deque (B : Finite_buffer).
         apply B.max_len_positive.
     Qed.
 
-    Next Obligation.
-    Proof.
-      intuition.
-        simpl in H.
-        apply B.full_is_red_contr with (A := A) (buff := prefix).
-        destruct (B.color prefix) ; auto ; try discriminate.
-    Qed.
-
     Fixpoint type_of_last_lvl (A : Set) (s : t A) : Set :=
       match s with
-      | One_level _ _ _ _ => A
-      | Top _ _ _ _ rest => type_of_last_lvl rest
+      | Empty => A
+      | Cons _ rest => type_of_last_lvl rest
       end.
 
     Theorem push_on_regular_does_not_deepen :
       forall A : Set, forall x : A, forall s : t A, forall p,
         type_of_last_lvl s = type_of_last_lvl (push x s p).
-    Proof. destruct s ; auto. Qed.
+    Proof. 
+      intros ; destruct s.
+        destruct p ; intuition.
+        destruct l ; auto.
+    Qed.
 
     Hint Rewrite <- push_on_regular_does_not_deepen : stack.
   End Stack.
 
+  Module S := Stack.
+
   Inductive t (A : Set) : Set :=
-    | mynil : t A
-    | mycons : forall s : Stack.t A, t (Stack.type_of_last_lvl s) -> t A.
+    | Nil : t A
+    | Cons : forall s : Stack.t A, t (Stack.type_of_last_lvl s) -> t A.
+
+  Notation "∅" := Nil.
+  Notation "x ++ y" := (Cons x y).
 
   Fixpoint no_yellow_on_top (A : Set) (d : t A) : Prop :=
     match d with
-    | mynil => True
-    | mycons stack stacks =>
+    | ∅ => True
+    | stack ++ stacks =>
       match Stack.top_color stack with
       | Yellow => False
       | _ => no_yellow_on_top stacks
@@ -154,8 +166,8 @@ Module Deque (B : Finite_buffer).
 
   Fixpoint green_first (A : Set) (d : t A) : Prop :=
     match d with
-    | mynil => True
-    | mycons stack stacks =>
+    | ∅ => True
+    | stack ++ stacks =>
       match Stack.top_color stack with
       | Green => True
       | Yellow => green_first stacks
@@ -165,8 +177,8 @@ Module Deque (B : Finite_buffer).
 
   Fixpoint semi_regular (A : Set) (d : t A) : Prop :=
     match d with
-    | mynil => True
-    | mycons stack stacks =>
+    | ∅ => True
+    | stack ++ stacks =>
       let green_before_red :=
         match Stack.top_color stack with
         | Green => True
@@ -181,52 +193,55 @@ Module Deque (B : Finite_buffer).
     forall A, forall d : t A, semi_regular d -> no_yellow_on_top d.
   Proof.
     intros.
-    admit. (* TODO *)
+    induction d; auto.
+    inversion H ; inversion H1 ; apply IHd in H2; simpl.
+    destruct (Stack.top_color s) ; assumption.
   Qed.
 
   Definition strongly_regular (A : Set) (d : t A) : Prop :=
     match d with
-    | mynil => True (* we won't be able to implement [do_regularize] otherwise. *)
+    | ∅ => True (* we won't be able to implement [do_regularize] otherwise. *)
     (* Unless we add another trillion of ad-hoc cases, of course. But that
      * should be enough. Also, I'm hoping it doesn't break anything elsewhere. *)
-    | mycons _ stacks =>
+    | _ ++ stacks =>
       green_first d /\ semi_regular d /\ no_yellow_on_top stacks
     end.
 
   Definition regular (A : Set) (d : t A) : Prop :=
     match d with
-    | mynil => True (* same reason as in [strongly_regular]. *)
+    | ∅ => True (* same reason as in [strongly_regular]. *)
     (* ad-hoc case: the deque is empty *)
-    | mycons (Stack.One_level 0 0 _ _) mynil => True
+    | (S.Cons (S.Lvl 0 0 _ _) S.Empty) ++ ∅ => True
     (* general case *)
-    | mycons yellow_stack stacks =>
-      match Stack.top_color yellow_stack with
+    | top_stack ++ stacks =>
+      match Stack.top_color top_stack with
       | Yellow => strongly_regular stacks
       | _ => strongly_regular d
       end
     end.
 
   Program Definition empty (A : Set) : { d : t A | regular d } :=
-    let singleton := Stack.One_level (B.empty A) (B.empty A) in
-    mycons singleton (mynil (Stack.type_of_last_lvl singleton)).
+    let empty_stack := ` (S.empty A) in
+    empty_stack ++ (∅ (S.type_of_last_lvl empty_stack)).
 
   Program Definition dirty_push (A : Set) (elt : A) (d : t A | regular d) : t A :=
     match d with
-    | mynil =>
-      let singleton := Stack.One_level (B.empty A) (B.empty A) in
-      mycons (Stack.push elt singleton _) ((fun _ => _) mynil)
-    | mycons stack stacks => mycons (Stack.push elt stack _) ((fun _ => _) stacks)
+    | ∅ =>
+      let empty_stack := ` (S.empty A) in
+      let singleton := S.push elt empty_stack _ in
+      singleton ++ ( ∅ (S.type_of_last_lvl singleton) )
+    | stack ++ stacks => 
+      (Stack.push elt stack _) ++ ((fun _ => _) stacks)
     end.
 
   Next Obligation.
   Proof.
     intuition.
-    destruct stacks, stack; destruct m, n ; solve [
-      auto |
-      (left ; intros; unfold regular in H ; rewrite H0 in H; 
-      unfold strongly_regular in H; intuition; unfold green_first in H1;
-      rewrite H0 in H1; apply H1)
-    ].
+    destruct stacks, stack ; firstorder;
+      destruct l, stack; destruct m, n ; firstorder;
+      unfold regular in H;
+      left ; intros ; unfold strongly_regular in H; rewrite H0 in H; intuition;
+      unfold green_first in H1; rewrite H0 in H1 ; apply H1.
   Qed.
 
   Next Obligation.
@@ -236,14 +251,7 @@ Module Deque (B : Finite_buffer).
   Qed.
 
   Program Definition do_regularize (A : Set) (d : t A) (p : semi_regular d) :
-    { d : t A | strongly_regular d } :=
-    match d with
-    | mynil => (fun _ => _) mynil
-    | mycons top_stack stacks =>
-      match top_stack with
-      | _ => !
-      end
-    end.
+    { d : t A | strongly_regular d } := !.
 
   Admit Obligations.
 
@@ -252,33 +260,37 @@ Module Deque (B : Finite_buffer).
     (H0 : Stack.top_color top_stack = Red -> green_first rest)
     (H1 : Stack.regular top_stack) :
     { d : t A | regular d } :=
-        match Stack.top_color top_stack with
-        | Green => mycons top_stack rest
-        | Yellow => mycons top_stack (do_regularize rest _)
-        | Red => do_regularize (mycons top_stack rest) _
-        end.
+      match Stack.top_color top_stack with
+      | Green => top_stack ++ rest
+      | Yellow => top_stack ++ (do_regularize rest _)
+      | Red => do_regularize (top_stack ++ rest) _
+      end.
 
   Next Obligation.
   Proof.
+    rewrite <- Heq_anonymous.
     destruct top_stack.
-      rewrite <- Heq_anonymous ; firstorder.
-      apply semi_impl_noyellow ; auto.
+      firstorder ; apply semi_impl_noyellow ; auto.
 
-      destruct m, n ; rewrite <- Heq_anonymous ; firstorder ; solve [
+      destruct l ; destruct m, n ; firstorder ; solve [
         (apply semi_impl_noyellow ; auto) |
         (destruct rest ; [ firstorder | firstorder ;
-        simpl; (* destruct (Stack.top_color s). doesn't work *) admit])
+        simpl; (* destruct (Stack.top_color s). doesn't work *) admit]) |
+        (destruct top_stack; destruct rest ; firstorder; simpl; admit)
       ].
   Qed.
 
   Next Obligation.
   Proof.
-    destruct top_stack ; firstorder; rewrite <- Heq_anonymous.
+    rewrite <- Heq_anonymous.
+    destruct top_stack ; firstorder.
       exact (proj2_sig (do_regularize rest H)).
 
-      destruct m, n ; try solve [ (exact (proj2_sig (do_regularize rest H))) ].
-      destruct (` (do_regularize rest H)) eqn:Heq; auto.
-      rewrite <- Heq ; exact (proj2_sig (do_regularize rest H)).
+      destruct l ; destruct m, n ; try solve [ (exact (proj2_sig (do_regularize rest H))) ].
+      destruct top_stack ; firstorder; [
+        (destruct (` (do_regularize rest H)) eqn:Heq; auto; rewrite <- Heq) |
+        idtac
+      ] ; exact (proj2_sig (do_regularize rest H)).
   Qed.
 
   Next Obligation.
@@ -296,19 +308,21 @@ Module Deque (B : Finite_buffer).
       intros.
       destruct d ; auto.
       destruct s ; firstorder ; unfold regular.
-        destruct (Stack.top_color (Stack.Top t0 t1 s)) eqn:Color ; firstorder.
-          destruct (Stack.top_color (Stack.Top t0 t1 s)) ; auto.
-            discriminate Color. discriminate Color.
-          destruct (Stack.top_color (Stack.Top t0 t1 s)) ; auto.
-            discriminate Color.
+      destruct l ; firstorder.
+      destruct (S.top_color (S.Cons (S.Lvl t0 t1) s)) eqn:Color.
+        (* TODO: factorize *)
+        destruct m, n; firstorder; [
+          (destruct s ; destruct d) | idtac | idtac | idtac
+        ]; firstorder ; rewrite Color ; auto.
 
-        (* FIXME: why doesn't [ (destruct d ; auto) | .. ] work? *)
-        destruct m, n ; [ (destruct d ; auto) | idtac | idtac | idtac ];
-          destruct (Stack.top_color (Stack.One_level t0 t1)) eqn:Color ; firstorder;
-            rewrite Color ; auto.
+        destruct m, n; firstorder.
+
+        destruct m, n; firstorder; [
+          (destruct s ; destruct d) | idtac | idtac | idtac
+        ]; firstorder ; rewrite Color ; auto.
     Qed.
     apply strongr_impl_r.
-    exact ( proj2_sig ( do_regularize (mycons top_stack rest) _) ).
+    exact ( proj2_sig ( do_regularize (top_stack ++ rest) _) ).
   Qed.
 
 End Deque.
