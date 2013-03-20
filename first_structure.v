@@ -251,7 +251,17 @@ Module Deque (B : Finite_buffer).
   Qed.
 
   Program Definition do_regularize (A : Set) (d : t A) (p : semi_regular d) :
-    { d : t A | strongly_regular d } := !.
+    { d : t A | strongly_regular d } :=
+    match d with
+    | ∅ => (fun _ => _) ∅
+    (* shitty case: last lvl *)
+    | (Stack.Cons lvli Stack.Empty) ++ ∅ => ! 
+    (* general case *)
+    | (Stack.Cons lvli (Stack.Cons lvlSi yellows)) ++ stacks
+    | (Stack.Cons lvli Stack.Empty) ++ (Stack.Cons lvlSi yellows) ++ stacks => !
+    (* absurd cases *)
+    | _ => !
+    end.
 
   Admit Obligations.
 
