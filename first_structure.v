@@ -193,7 +193,13 @@ Module Deque (B : Finite_buffer).
     forall A, forall d : t A, semi_regular d -> no_yellow_on_top d.
   Proof.
     intros.
-    admit. (* TODO *)
+    (* induction d. :sadpanda: *)
+    destruct d; auto.
+    inversion H; inversion H1; simpl.
+    destruct (Stack.top_color elt).
+      admit. (* apply IHn *)
+      contradiction.
+      admit. (* apply IHn *)
   Qed.
 
   Definition strongly_regular (A : Set) (d : t A) : Prop :=
