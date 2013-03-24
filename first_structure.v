@@ -203,8 +203,7 @@ Module Deque (B : Finite_buffer).
     | ∅ => True (* we won't be able to implement [do_regularize] otherwise. *)
     (* Unless we add another trillion of ad-hoc cases, of course. But that
      * should be enough. Also, I'm hoping it doesn't break anything elsewhere. *)
-    | _ ++ stacks =>
-      green_first d /\ semi_regular d /\ no_yellow_on_top stacks
+    | _ ++ stacks => green_first d /\ semi_regular d
     end.
 
   Definition regular (A : Set) (d : t A) : Prop :=
