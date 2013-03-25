@@ -1,4 +1,5 @@
 Require Import Program.
+Require Import Coq.Arith.Bool_nat.
 Require Import List.
 Set Implicit Arguments.
 
@@ -59,15 +60,21 @@ Module Type Finite_buffer.
 End Finite_buffer.
 
 Module Deque (B : Finite_buffer).
-  Module Stack.
-    Inductive lvl (A : Set) :=
-      | Lvl : forall m n, B.t A m -> B.t A n -> lvl A.
+  Module Lvl.
+    Inductive t (A : Set) :=
+      | Lvl : forall m n, B.t A m -> B.t A n -> t A.
 
-    Inductive t (A : Set) : Set :=
-      | Empty : t A
-      | Cons  : lvl A -> t (A * A) -> t A.
+    Definition prefix_length (A : Set) (x : t A) :=
+      match x with
+      | Lvl n _ _ _ => n
+      end.
 
-    Definition lvl_color (A : Set) (lvl : lvl A) :=
+    Definition suffix_length (A : Set) (x : t A) :=
+      match x with
+      | Lvl _ n _ _ => n
+      end.
+
+    Definition color (A : Set) (lvl : t A) :=
       match lvl with
       (* limit case *)
       | Lvl 0 _ buff _
@@ -76,44 +83,19 @@ Module Deque (B : Finite_buffer).
       | Lvl _ _ prefix suffix => min_color (B.color prefix) (B.color suffix)
       end.
 
-    Definition top_color (A : Set) (stack : t A) :=
-      match stack with
-      | Empty => Red
-      | Cons toplvl _ => lvl_color toplvl
-      end.
-
-    Definition regular (A : Set) (s : t A) :=
-      let all_yellows :=
-        fix f (B : Set) (s : t B) : Prop :=
-          match s with
-          | Empty => True
-          | Cons lvl rest => (lvl_color lvl = Yellow) /\ f (prod B B) rest
-          end
-      in
-      match s with
-      | Empty => True (* FIXME: why not False? *)
-      | Cons _ yellows => all_yellows (prod A A) yellows
-      end.
-
-    Definition is_empty (A : Set) (s : t A) :=
-      match s with
-      | Cons (Lvl 0 0 _ _) Empty  => True
+    Definition is_empty (A : Set) (lvl : t A) :=
+      match lvl with
+      | Lvl 0 0 _ _ => True
       | _ => False
       end.
 
-    Program Definition empty (A : Set) : { s : t A | regular s } :=
-      Cons (Lvl (B.empty A) (B.empty A)) (Empty (prod A A)).
+    Program Definition empty (A : Set) := Lvl (B.empty A) (B.empty A).
 
     Program Definition push (A : Set) (elt : A) (s : t A)
-      (p : top_color s <> Red \/ is_empty s) : t A :=
+      (p : color s <> Red \/ is_empty s) : t A :=
       match s with
-      | Empty => !
-      | Cons (Lvl n m prefix suffix) rest =>
-        Cons (Lvl (B.push _ elt prefix) suffix) rest
+      | Lvl n m prefix suffix => Lvl (B.push _ elt prefix) suffix
       end.
-
-    Next Obligation.
-    Proof. intuition. Qed.
 
     Next Obligation.
     Proof.
@@ -127,6 +109,130 @@ Module Deque (B : Finite_buffer).
         apply B.max_len_positive.
     Qed.
 
+    Program Definition inject (A : Set) (elt : A) (s : t A)
+      (p : color s <> Red \/ is_empty s) : t A :=
+      match s with
+      | Lvl n m prefix suffix => Lvl prefix (B.inject _ elt suffix)
+      end.
+
+    (* TODO: clean-up *)
+    Next Obligation.
+    Proof.
+      intuition.
+        apply B.full_is_red_contr with (A := A) (buff := suffix).
+        destruct m, n ; simpl in H ; firstorder.
+          rewrite B.empty_is_red in H ; auto.
+          rewrite B.empty_is_red in H ; auto.
+          destruct (B.color suffix) ; auto ; try discriminate.
+          destruct (B.color prefix) ; auto.
+        
+        destruct n, m; firstorder.
+        apply B.max_len_positive.
+    Qed.
+
+    Program Definition pop (A : Set) (lvl : t A) (p : ~ is_empty lvl) : A * t A :=
+      match lvl with
+      (* prefix is not empty *)
+      | Lvl (S k) _ prefix suffix =>
+        let (elt, prefix) := B.pop prefix in
+        (elt, Lvl prefix suffix)
+      (* prefix is empty *)
+      | Lvl 0 (S k) empty suffix =>
+        let (elt, suffix) := B.pop suffix in
+        (elt, Lvl empty suffix)
+      (* lvl is empty : absurd *)
+      | _ => !
+      end.
+
+    Next Obligation.
+    Proof.
+      contradict p; intuition.
+      destruct lvl ; destruct m, n.
+        firstorder.
+        apply H with (k := n) (empty := t0) (suffix := t1) ; trivial.
+        apply H0 with (k := m) (wildcard' := 0) (prefix := t0) (suffix := t1) ; trivial.
+        apply H0 with (k := m) (wildcard' := (S n)) (prefix := t0) (suffix := t1) ; trivial.
+    Qed.
+
+    Next Obligation.
+    Proof. intuition; contradict H; discriminate. Qed.
+
+    Program Definition eject (A : Set) (lvl : t A) (p : ~ is_empty lvl) : A * t A :=
+      match lvl with
+      (* suffix is not empty *)
+      | Lvl _ (S k) prefix suffix =>
+        let (elt, suffix) := B.eject suffix in
+        (elt, Lvl prefix suffix)
+      (* suffix is empty *)
+      | Lvl (S k) 0 prefix empty =>
+        let (elt, prefix) := B.eject prefix in
+        (elt, Lvl prefix empty)
+      (* lvl is empty : absurd *)
+      | _ => !
+      end.
+
+    Next Obligation.
+    Proof.
+      contradict p; intuition.
+      destruct lvl ; destruct m, n.
+        firstorder.
+        apply H0 with (k := n) (wildcard' := 0) (prefix := t0) (suffix := t1) ; trivial.
+        apply H with (k := m) (prefix := t0) (empty := t1) ; trivial.
+        apply H0 with (k := n) (wildcard' := (S m)) (prefix := t0) (suffix := t1) ; trivial.
+    Qed.
+
+    Next Obligation.
+    Proof. intuition; contradict H; discriminate. Qed.
+
+  End Lvl.
+
+  Module Stack.
+    Inductive t (A : Set) : Set :=
+      | Empty : t A
+      | Cons  : Lvl.t A -> t (A * A) -> t A.
+
+    Definition top_color (A : Set) (stack : t A) :=
+      match stack with
+      | Empty => Red
+      | Cons toplvl _ => Lvl.color toplvl
+      end.
+
+    Definition regular (A : Set) (s : t A) :=
+      let all_yellows :=
+        fix f (B : Set) (s : t B) : Prop :=
+          match s with
+          | Empty => True
+          | Cons lvl rest => (Lvl.color lvl = Yellow) /\ f (prod B B) rest
+          end
+      in
+      match s with
+      | Empty => False (* FIXME: why not False? *)
+      | Cons _ yellows => all_yellows (prod A A) yellows
+      end.
+
+    Definition is_empty (A : Set) (s : t A) :=
+      match s with
+      | Cons lvl Empty => Lvl.is_empty lvl
+      | _ => False
+      end.
+
+    Program Definition empty (A : Set) : { s : t A | regular s } :=
+      Cons (Lvl.empty A) (Empty (prod A A)).
+
+    (* TODO: probably unused, remove. *)
+    Program Definition push (A : Set) (elt : A) (s : t A)
+      (p : top_color s <> Red \/ is_empty s) : t A :=
+      match s with
+      | Empty => !
+      | Cons lvl rest => Cons (Lvl.push elt lvl _) rest
+      end.
+
+    Next Obligation.
+    Proof. intuition. Qed.
+
+    Next Obligation.
+    Proof. destruct rest ; firstorder. Qed.
+
     Fixpoint type_of_last_lvl (A : Set) (s : t A) : Set :=
       match s with
       | Empty => A
@@ -139,7 +245,7 @@ Module Deque (B : Finite_buffer).
     Proof. 
       intros ; destruct s.
         destruct p ; intuition.
-        destruct l ; auto.
+        destruct t0 ; auto.
     Qed.
 
     Hint Rewrite <- push_on_regular_does_not_deepen : stack.
@@ -210,7 +316,7 @@ Module Deque (B : Finite_buffer).
     match d with
     | ∅ => True (* same reason as in [strongly_regular]. *)
     (* ad-hoc case: the deque is empty *)
-    | (S.Cons (S.Lvl 0 0 _ _) S.Empty) ++ ∅ => True
+    | (S.Cons (Lvl.Lvl 0 0 _ _) S.Empty) ++ ∅ => True (* TODO: Use [is_empty] *)
     (* general case *)
     | top_stack ++ stacks =>
       match Stack.top_color top_stack with
@@ -237,7 +343,7 @@ Module Deque (B : Finite_buffer).
   Proof.
     intuition.
     destruct stacks, stack ; firstorder;
-      destruct l, stack; destruct m, n ; firstorder;
+      destruct t0, stack; destruct m, n ; firstorder;
       unfold regular in H;
       left ; intros ; unfold strongly_regular in H; rewrite H0 in H; intuition;
       unfold green_first in H1; rewrite H0 in H1 ; apply H1.
@@ -249,6 +355,19 @@ Module Deque (B : Finite_buffer).
     exact H.
   Qed.
 
+  Program Definition no_buff_case (A : Set) (x : Lvl.t A) (y : Lvl.t (A * A))
+    (yellows : Stack.t ((A * A) * (A * A)))
+    (rest : t (Stack.type_of_last_lvl yellows)) :
+    { d : t A | strongly_regular d } :=
+        !.
+
+  Admit Obligations.
+
+  Print Implicit Lvl.Lvl.
+  Check Lvl.pop.
+  Print Implicit Lvl.pop.
+  Print Implicit Lvl.push.
+
   Program Definition do_regularize (A : Set) (d : t A) (p : semi_regular d) :
     { d : t A | strongly_regular d } :=
     match d with
@@ -257,7 +376,69 @@ Module Deque (B : Finite_buffer).
     | (Stack.Cons lvli Stack.Empty) ++ ∅ => ! 
     (* general case *)
     | (Stack.Cons lvli (Stack.Cons lvlSi yellows)) ++ stacks
-    | (Stack.Cons lvli Stack.Empty) ++ (Stack.Cons lvlSi yellows) ++ stacks => !
+    | (Stack.Cons lvli Stack.Empty) ++ (Stack.Cons lvlSi yellows) ++ stacks =>
+      match Lvl.color lvli with
+      | Yellow => !
+      | Green => d (* nothing to do *)
+      | Red =>
+        if le_gt_dec 2 (Lvl.prefix_length lvlSi + Lvl.suffix_length lvlSi) then
+          (* Two-Buffer Case *)
+          let lvlSi : Lvl.t (A * A) :=
+            match lvlSi with
+            | Lvl.Lvl 0 (S k) empty suffix =>
+              let (elt, new_suffix) := B.pop suffix in
+              Lvl.Lvl (B.inject _ elt empty) new_suffix
+            | Lvl.Lvl (S k) 0 prefix empty =>
+              let (elt, new_prefix) := B.eject prefix in
+              Lvl.Lvl new_prefix (B.inject _ elt empty)
+            | lvl => lvl
+            end
+          in
+          (* greenify the prefix *)
+          let pair : (Lvl.t A) * (Lvl.t (A * A)) :=
+            match lvli, lvlSi with
+            | Lvl.Lvl pi_len si_len pi si, Lvl.Lvl pSi_len _ pSi sSi =>
+              match pi_len with
+              | 4 | 5 =>
+                let (last, pi) := B.pop pi in
+                let (second_last, pi) := B.pop (n := pred (pred pi_len)) pi in
+                let pSi := B.push _ (second_last, last) pSi in
+                (Lvl.Lvl pi si, Lvl.Lvl pSi sSi)
+              | 0 | 1 =>
+                let (pair, pSi) := B.pop (n := pred pSi_len) pSi in
+                let (elt1, elt2) := pair in (* Fuck you Coq, Fuck *you* *)
+                let pi := B.inject _ elt2 (B.inject _ elt1 pi) in
+                (Lvl.Lvl pi si, Lvl.Lvl pSi sSi)
+              | _ => (lvli, lvlSi)
+              end
+            end
+          in
+          let (lvli, lvlSi) := pair in
+          (* greenify the suffix *)
+          let pair : (Lvl.t A) * (Lvl.t (A * A)) :=
+            match lvli, lvlSi with
+            | Lvl.Lvl pi_len si_len pi si, Lvl.Lvl _ sSi_len pSi sSi =>
+              match si_len with
+              | 4 | 5 =>
+                let (first, si) := B.pop si in
+                let (second, si) := B.pop (n := pred (pred si_len)) si in
+                let lvlSi := B.inject _ (first, second) sSi in
+                (Lvl.Lvl pi si, Lvl.Lvl pSi sSi)
+              | 0 | 1 =>
+                let (pair, lvlSi) := B.eject (n := pred sSi_len) sSi in
+                let (elt1, elt2) := pair in (* Fuck you Coq, Fuck *you* *)
+                let si := B.inject _ elt1 (B.inject _ elt2 si) in
+                (Lvl.Lvl pi si, Lvl.Lvl pSi sSi)
+              | _ => (lvli, lvlSi)
+              end
+            end
+          in
+          let (lvli, lvlSi) := pair in
+          !
+        else
+          (* TODO *)
+          !
+      end
     (* absurd cases *)
     | _ => !
     end.
