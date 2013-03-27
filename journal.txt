@@ -1,3 +1,29 @@
+Wed Mar 27 13:58:06 CET 2013
+
+Fait:
+
+- début d'implémentation de la première structure, fonctorisée par les buffers
+- discussion au sujet de https://gist.github.com/trefis/5254146 , yann a émi
+  l'hypothèse que les implicites étaient probablement en cause, mais là comme ça
+  ça ne m'a pas l'air, à voir.
+  (Note: des changements dans le code ont de toute façon supprimé le problème,
+   donc cette discussion est une annexe au projet).
+
+À faire:
+
+- fonctoriser par rapport aux "niveaux" (i.e. les paires de buffers de type
+  arbitraire) en même temps que les buffers
+  Le module des niveaux offrira les "primitives" de régularisation, i.e. on lui
+  donnera deux niveaux consécutifs, le premier rouge, le second non rouge et il
+  retournera un niveau vert et un niveau non rouge.
+  Nécessaire car les opérations de "régularisation" sont dépendantes de la
+  taille des buffers.
+
+- Finir d'implémenter la première structure et prouver qu'elle fonctionne.
+
+- Reproduire le problème discuté plus haut (c.f. gist) sur un cas plus simple.
+  (non prioritaire)
+
 Wed Mar  6 17:32:43 CET 2013
 
 Fait:
