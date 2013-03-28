@@ -39,6 +39,16 @@ Module Make (Lvl : Level.Intf).
       | _ => False
       end.
 
+    Theorem dec_is_empty :
+        forall {A}, forall s : t A, {is_empty s} + {~ is_empty s}.
+    Proof.
+      destruct s.
+        right ; auto.
+        destruct s ; simpl.
+          apply Lvl.dec_is_empty.
+          right; auto.
+    Qed.
+
     Program Definition empty (A : Set) : { s : t A | regular s } :=
       Cons (` (Lvl.empty A)) (Empty _).
 
@@ -146,10 +156,22 @@ Module Make (Lvl : Level.Intf).
       | Red =>
         match stacks with
         | ∅ => S.is_empty top_stack (* ad-hoc case: the deque is empty *)
-        | _ => False
+        | _ => strongly_regular d
         end
       end
     end.
+
+  Lemma strongr_impl_r :
+    forall A, forall d : t A, strongly_regular d -> regular d.
+  Proof.
+    intros.
+    destruct d ; auto.
+    destruct s ; firstorder ; unfold regular.
+    destruct (S.top_color (S.Cons t0 s)) eqn:Color.
+      firstorder (rewrite Color); trivial.
+      contradict H2.
+      unfold green_first in H ; rewrite Color in H ; contradict H.
+  Qed.
 
   Program Definition empty (A : Set) : { d : t A | regular d } :=
     let empty_stack := ` (S.empty A) in
@@ -183,7 +205,7 @@ Module Make (Lvl : Level.Intf).
         left ; intros ; discriminate.
         right ; assumption.
   
-      left ; intros; rewrite H0 in H; trivial.
+      left ; intros; simpl in H ; simpl in H0 ; rewrite H0 in H ; intuition.
   Qed.
 
   Next Obligation.
@@ -212,10 +234,13 @@ Module Make (Lvl : Level.Intf).
           | Red => !
           | Green =>
             let AA : Set := prod A A in
-            (S.Cons lvli (S.Empty AA)) ++ (S.Cons lvlSi (S.Empty (prod AA AA))) ++ (∅ (prod AA AA))
+            (S.Cons lvli (S.Empty AA))
+            ++ (S.Cons lvlSi (S.Empty (prod AA AA)))
+            ++ (∅ (prod AA AA))
           | Yellow =>
             let AA : Set := prod A A in
-            (S.Cons lvli (S.Cons lvlSi (S.Empty (prod AA AA)))) ++ (∅ (prod AA AA))
+            (S.Cons lvli (S.Cons lvlSi (S.Empty (prod AA AA))))
+            ++ (∅ (prod AA AA))
           end
         end
       end
@@ -258,7 +283,14 @@ Module Make (Lvl : Level.Intf).
       match Stack.top_color top_stack with
       | Green => top_stack ++ rest
       | Yellow => top_stack ++ (do_regularize rest _)
-      | Red => do_regularize (top_stack ++ rest) _
+      | Red =>
+        if (S.dec_is_empty top_stack) then
+          match rest with
+          | ∅ => top_stack ++ rest
+          | _ => do_regularize (top_stack ++ rest) _
+          end
+        else
+          do_regularize (top_stack ++ rest) _
       end.
 
   Next Obligation.
@@ -277,25 +309,22 @@ Module Make (Lvl : Level.Intf).
   Qed.
 
   Next Obligation.
-  Proof.
-    intuition.
-    rewrite <- Heq_anonymous.
-    auto.
-  Qed.
+  Proof. rewrite <- Heq_anonymous; intuition. Qed.
+
+  Next Obligation.
+  Proof. rewrite <- Heq_anonymous; intuition. Qed.
 
   Next Obligation.
   Proof.
-    Lemma strongr_impl_r :
-      forall A, forall d : t A, strongly_regular d -> regular d.
-    Proof.
-      intros.
-      destruct d ; auto.
-      destruct s ; firstorder ; unfold regular.
-      destruct (S.top_color (S.Cons t0 s)) eqn:Color.
-        firstorder (rewrite Color); trivial.
-        contradict H2.
-        unfold green_first in H ; rewrite Color in H ; contradict H.
-    Qed.
+    apply strongr_impl_r.
+    exact ( proj2_sig ( do_regularize (top_stack ++ rest) _) ).
+  Qed.
+
+  Next Obligation.
+  Proof. rewrite <- Heq_anonymous; intuition. Qed.
+
+  Next Obligation.
+  Proof.
     apply strongr_impl_r.
     exact ( proj2_sig ( do_regularize (top_stack ++ rest) _) ).
   Qed.

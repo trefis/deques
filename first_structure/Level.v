@@ -31,4 +31,6 @@ Module Type Intf.
 
   Axiom empty_is_red_contr : (* yes, I'm lazy *)
     forall A, forall lvl : t A, color lvl <> Red -> ~ is_empty lvl.
+
+  Axiom dec_is_empty : forall A, forall t:t A, {is_empty t} + {~ is_empty t}.
 End Intf.
