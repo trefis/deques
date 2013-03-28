@@ -247,19 +247,37 @@ Module Make (Lvl : Level.Intf).
     (* general case *)
     | (S.Cons lvli (S.Cons lvlSi yellows)) ++ stacks
     | (S.Cons lvli S.Empty) ++ (S.Cons lvlSi yellows) ++ stacks =>
-(*      match Lvl.color lvli with
+      match Lvl.color lvli with
       | Yellow => !
       | Green => d (* nothing to do *)
       | Red =>
         let (lvli, lvlSi) := Lvl.equilibrate lvli (Some lvlSi) in
         match lvlSi with
         | None =>
-          match yellows, stacks with
+          (* FIXME: I don't want to nest matchings like that, but Coq fails to
+           * typecheck if I don't. (see the commented code just below)
+           *
+           * With the [return ...] there are obligations you can't even try to
+           * solve (or admit) because it will fail to type then (resulting in an
+           * uncaught exception when using [Admit Obligations].
+           *   (N.B. that happens with [t A] as return type, or the one present
+           *    in the comment at the moment.)
+           *
+           * Withouth the [return] it just refuses to type the definition. *)
+          match yellows with
+          | S.Empty =>
+            match stacks with
+            | ∅ => S.Cons lvli (S.Empty (prod A A)) ++ (∅ (prod A A))
+            | _ => !
+            end
+          | _ => !
+          end
+            (*
+          match yellows, stacks return { d : t A | strongly_regular d } with 
           | S.Empty, ∅ => (S.Cons lvli (S.Empty (prod A A))) ++ (∅ (prod A A))
-          (* Type Error in the next case.
-           * Why doesn't Coq accept [!] as always? *)
           | _, _ => ! (* lvlSi is removed only if it is the last level. *)
           end
+          *)
         | Some lvlSi =>
           match Lvl.color lvlSi with
           | Red => !
@@ -268,7 +286,7 @@ Module Make (Lvl : Level.Intf).
             (S.Cons lvli (S.Empty (prod A A))) ++ (S.Cons lvlSi yellows) ++ stacks
           end
         end
-      end*) !
+      end
     (* absurd cases *)
     | _ => !
     end.
