@@ -152,11 +152,11 @@ Module Make (Lvl : Level.Intf).
     | top_stack ++ stacks =>
       match Stack.top_color top_stack with
       | Yellow => strongly_regular stacks
-      | Green => strongly_regular d
+      | Green => semi_regular d
       | Red =>
         match stacks with
         | ∅ => S.is_empty top_stack (* ad-hoc case: the deque is empty *)
-        | _ => strongly_regular d
+        | _ => False
         end
       end
     end.
