@@ -217,7 +217,7 @@ Module Make (Lvl : Level.Intf).
   Program Definition do_regularize {A : Set} (d : t A) (p : semi_regular d) :
     { d : t A | strongly_regular d } :=
     match d with
-    | ∅ => (fun _ => _) ∅
+    | ∅ => ∅ A
     (* shitty case: last lvl *)
     (* N.B. if [color lvli = Red] either [d] is empty, or we are in the
      * "One-Buffer Case". *)
@@ -291,7 +291,40 @@ Module Make (Lvl : Level.Intf).
     | _ => !
     end.
 
-  Admit Obligations.
+  Next Obligation.
+  Proof.
+    unfold semi_regular in p; intuition.
+    simpl in H2; rewrite <- Heq_anonymous in H2.
+    trivial.
+  Qed.
+
+  Next Obligation.
+  Proof. simpl; rewrite <- Heq_anonymous; auto. Qed.
+
+  Next Obligation.
+  Proof. rewrite H ; auto. Qed.
+
+  Next Obligation.
+  Proof. rewrite H0; rewrite <- Heq_anonymous0; firstorder. Qed.
+
+  Next Obligation.
+  Proof. rewrite H0 ; rewrite <- Heq_anonymous0; auto. Qed.
+
+  Next Obligation.
+  Proof. firstorder; simpl in H2; rewrite <- Heq_anonymous in H2; trivial. Qed.
+
+  Next Obligation.
+  Proof. firstorder; simpl; rewrite <- Heq_anonymous; trivial. Qed.
+
+  Next Obligation.
+  Proof. firstorder; rewrite H ; discriminate. Qed.
+
+  Next Obligation.
+  Proof. rewrite H; auto. Qed.
+
+  Next Obligation.
+  Proof.
+    contradict H.
 
   Program Definition regularize (A : Set) (top_stack : Stack.t A)
     (rest : t (Stack.type_of_last_lvl top_stack) | semi_regular rest)
