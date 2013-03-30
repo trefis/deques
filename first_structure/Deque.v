@@ -29,7 +29,7 @@ Module Make (Lvl : Level.Intf).
           end
       in
       match s with
-      | Empty => True (* FIXME: why not False? *)
+      | Empty => False
       | Cons _ yellows => all_yellows (prod A A) yellows
       end.
 
@@ -151,7 +151,7 @@ Module Make (Lvl : Level.Intf).
     | ∅ => True (* same reason as in [strongly_regular]. *)
     | top_stack ++ stacks =>
       match Stack.top_color top_stack with
-      | Yellow => strongly_regular stacks
+      | Yellow => Stack.regular top_stack /\ strongly_regular stacks
       | Green => semi_regular d
       | Red =>
         match stacks with
