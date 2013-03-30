@@ -74,7 +74,7 @@ Module Make (Lvl : Level.Intf).
     Theorem push_on_regular_does_not_deepen :
       forall A : Set, forall x : A, forall s : t A, forall p,
         type_of_last_lvl s = type_of_last_lvl (push x s p).
-    Proof. 
+    Proof.
       intros ; destruct s.
         destruct p ; intuition.
         auto.
@@ -189,7 +189,7 @@ Module Make (Lvl : Level.Intf).
       let empty_stack := ` (S.empty A) in
       let singleton := S.push elt empty_stack _ in
       singleton ++ ( ∅ (S.type_of_last_lvl singleton) )
-    | stack ++ stacks => 
+    | stack ++ stacks =>
       (Stack.push elt stack _) ++ ((fun _ => _) stacks)
     end.
 
@@ -204,7 +204,7 @@ Module Make (Lvl : Level.Intf).
         left ; intros ; discriminate.
         left ; intros ; discriminate.
         right ; assumption.
-  
+
       left ; intros; simpl in H ; simpl in H0 ; rewrite H0 in H ; intuition.
   Qed.
 
@@ -273,7 +273,7 @@ Module Make (Lvl : Level.Intf).
           | _ => !
           end
             (*
-          match yellows, stacks return { d : t A | strongly_regular d } with 
+          match yellows, stacks return { d : t A | strongly_regular d } with
           | S.Empty, ∅ => (S.Cons lvli (S.Empty (prod A A))) ++ (∅ (prod A A))
           | _, _ => ! (* lvlSi is removed only if it is the last level. *)
           end
@@ -325,6 +325,94 @@ Module Make (Lvl : Level.Intf).
   Next Obligation.
   Proof.
     contradict H.
+    (* Here we want to prove that if [Level.equilibrate] removes the second
+     * level, that level was the last one of the deque.
+     * Unfortunately, I don't think that can be proved with the hypothesis we
+     * have at hand.
+     * That fact isn't proved in the original paper either, it merely says
+     * "level i+1 must be the bottom most level". And that obligation doesn't
+     * come from the (semi-)regularity of the structure, it is indeed possible
+     * exhibit a semi-regular deque such that the "regularisation" operation
+     * described in the paper would, if called on that deque, remove a level
+     * which isn't the bottomest one.
+     * So we must admit here (and maybe prove later) that we will never
+     * encounter such shaped deques. *)
+     admit.
+  Qed.
+
+  Next Obligation.
+    (* Same obligation as earlier. *)
+  Admitted.
+
+  Next Obligation.
+  Proof. firstorder; rewrite H0; trivial. Qed.
+
+  Next Obligation.
+  Proof.
+    firstorder; first [ rewrite H0 | rewrite <- Heq_anonymous0 ] ; trivial.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    inversion p ; inversion H0.
+    simpl in H2 ; rewrite <- Heq_anonymous in H2.
+    trivial.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    constructor.
+      simpl ; rewrite <- Heq_anonymous ; trivial.
+      trivial.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    inversion p ; inversion H0.
+    simpl in H2 ; rewrite <- Heq_anonymous in H2.
+    destruct (Lvl.color lvlSi) ; try discriminate || contradict H2 ; trivial.
+  Qed.
+
+  Next Obligation.
+  Proof. rewrite H ; auto. Qed.
+
+  Next Obligation.
+  Admitted. (* once again *)
+
+  Next Obligation.
+  Admitted. (* and again *)
+
+  Next Obligation.
+  Proof. firstorder; rewrite H0; trivial. Qed.
+
+  Next Obligation.
+  Proof.
+    firstorder; first [ rewrite H0 | rewrite <- Heq_anonymous0 ] ; trivial.
+  Qed.
+
+  (* Absurd case (finally) *)
+  Next Obligation.
+  Proof.
+    destruct d ; firstorder.
+    destruct s ; firstorder.
+    destruct d, s ; intuition.
+      apply H with (lvli := t0) ; reflexivity.
+      apply H0 with (lvli := t0) (lvlSi := t1) (yellows := s)
+        (stacks := ∅ (S.type_of_last_lvl s)) ; reflexivity.
+
+      destruct s0 ; firstorder.
+      apply H1 with (lvli := t0) (lvlSi := t1) (yellows := s0)
+        (stacks := d) ; reflexivity.
+
+      apply H0 with (lvli := t0) (lvlSi := t1) (yellows := s)
+        (stacks := s0 ++ d) ; reflexivity.
+  Qed.
+
+  Next Obligation.
+  Proof. intuition; discriminate. Qed.
+
+  Next Obligation.
+  Proof. intuition ; discriminate. Qed.
 
   Program Definition regularize (A : Set) (top_stack : Stack.t A)
     (rest : t (Stack.type_of_last_lvl top_stack) | semi_regular rest)
