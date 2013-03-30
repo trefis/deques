@@ -443,7 +443,7 @@ Module Make (Lvl : Level.Intf).
 
   Next Obligation.
   Proof.
-    rewrite <- Heq_anonymous.
+    rewrite <- Heq_anonymous; intuition.
     exact (proj2_sig (do_regularize rest H)).
   Qed.
 
