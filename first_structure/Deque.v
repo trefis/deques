@@ -71,6 +71,11 @@ Module Make (Lvl : Level.Intf).
       | Cons _ rest => type_of_last_lvl rest
       end.
 
+    Theorem push_preserves_regularity : (* TODO: inject that in the sig of push *)
+      forall A:Set, forall x : A, forall s : t A, forall p,
+        regular s -> regular (push x s p).
+    Proof. intros ; destruct s ; firstorder. Qed.
+
     Theorem push_on_regular_does_not_deepen :
       forall A : Set, forall x : A, forall s : t A, forall p,
         type_of_last_lvl s = type_of_last_lvl (push x s p).
@@ -414,7 +419,7 @@ Module Make (Lvl : Level.Intf).
   Next Obligation.
   Proof. intuition ; discriminate. Qed.
 
-  Program Definition regularize (A : Set) (top_stack : Stack.t A)
+  Program Definition regularize {A : Set} (top_stack : Stack.t A)
     (rest : t (Stack.type_of_last_lvl top_stack) | semi_regular rest)
     (H0 : Stack.top_color top_stack = Red -> green_first rest)
     (H1 : Stack.regular top_stack) :
@@ -466,6 +471,84 @@ Module Make (Lvl : Level.Intf).
   Proof.
     apply strongr_impl_r.
     exact ( proj2_sig ( do_regularize (top_stack ++ rest) _) ).
+  Qed.
+
+  Program Definition push {A : Set} (elt : A) (d : t A | regular d) :
+    { d : t A | regular d } :=
+    match d with
+    | ∅ =>
+      let empty_stack := ` (S.empty A) in
+      let singleton := S.push elt empty_stack _ in
+      singleton ++ ( ∅ (S.type_of_last_lvl singleton) )
+    | stack ++ stacks =>
+      let top_stack := Stack.push elt stack _ in
+      let stacks' : t (S.type_of_last_lvl top_stack) := (fun _ => _) stacks in
+      let proof : semi_regular stacks' := _ in
+      regularize top_stack (exist _ stacks' proof) _ _
+    end.
+
+  Next Obligation.
+  Proof. right; exact (proj2_sig (Lvl.empty A)). Qed.
+
+  Next Obligation.
+  Proof.
+    destruct (Lvl.color (Lvl.push elt (` (Lvl.empty A)) _)) eqn:Color ; auto.
+    contradict Color.
+    (* yet another case we can't prove :
+     *   Lvl.color Lvl.(push elt empty) <> Red *)
+    admit.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    intuition.
+    destruct stacks, stack ; firstorder; unfold regular in H.
+      destruct (Stack.top_color (S.Cons t0 stack)) eqn:Heq.
+        left ; intros ; discriminate.
+        left ; intros ; discriminate.
+        right ; assumption.
+
+      left ; intros; simpl in H ; simpl in H0 ; rewrite H0 in H ; intuition.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    autorewrite with stack.
+    exact H.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    unfold regular in H.
+    (* [destruct (Stack.top_color stack) eqn:Color.]
+        -> "Error: The correctness of the conclusion relies on the body of c" *)
+    admit. (* FIXME *)
+  Qed.
+
+  Next Obligation.
+  Proof.
+    (* The result of [Stack.push] begins with a Red level, that implicates that
+     * what was given to [push] was Yellow, therefore [green_first stacks] holds.
+     * However Coq doesn't know that. *)
+  Admitted.
+
+  Next Obligation.
+    Lemma regdeque_impl_regstack :
+      forall A:Set, forall stack:S.t A, forall deque: t (S.type_of_last_lvl stack),
+        regular (stack ++ deque) -> S.regular stack.
+    Proof.
+      intros.
+      unfold regular in H ; destruct stack.
+        simpl in * |- *; destruct deque ; auto.
+        destruct (Stack.top_color (S.Cons t0 stack)) eqn:Color ; solve [
+          (inversion H; assumption) |
+          (destruct deque ; destruct stack ; firstorder)
+        ].
+    Qed.
+  Proof.
+    apply S.push_preserves_regularity.
+    apply regdeque_impl_regstack with (deque := stacks).
+    assumption.
   Qed.
 
 End Make.
