@@ -482,9 +482,7 @@ Module Make (Lvl : Level.Intf).
       singleton ++ ( ∅ (S.type_of_last_lvl singleton) )
     | stack ++ stacks =>
       let top_stack := Stack.push elt stack _ in
-      let stacks' : t (S.type_of_last_lvl top_stack) := (fun _ => _) stacks in
-      let proof : semi_regular stacks' := _ in
-      regularize top_stack (exist _ stacks' proof) _ _
+      regularize top_stack ((fun _ => _) stacks) _ _
     end.
 
   Next Obligation.
@@ -514,15 +512,9 @@ Module Make (Lvl : Level.Intf).
   Next Obligation.
   Proof.
     autorewrite with stack.
-    exact H.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    unfold regular in H.
-    (* [destruct (Stack.top_color stack) eqn:Color.]
-        -> "Error: The correctness of the conclusion relies on the body of c" *)
-    admit. (* FIXME *)
+    cut (semi_regular stacks).
+      intro p ; exact (exist semi_regular stacks p).
+    simpl in H0 ; destruct (S.top_color stack) ; destruct stacks ; firstorder.
   Qed.
 
   Next Obligation.
