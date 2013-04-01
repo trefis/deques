@@ -503,10 +503,10 @@ Module Make (Lvl : Level.Intf).
   Proof.
     intuition.
     destruct stacks, stack ; firstorder; unfold regular in H.
-      destruct (Stack.top_color (S.Cons t0 stack)) eqn:Heq.
-        left ; intros ; discriminate.
-        left ; intros ; discriminate.
-        right ; assumption.
+      destruct (Stack.top_color (S.Cons t0 stack)) eqn:Heq; solve [
+        (left ; intros ; discriminate) |
+        (right ; assumption)
+      ].
 
       left ; intros; simpl in H ; simpl in H0 ; rewrite H0 in H ; intuition.
   Qed.
