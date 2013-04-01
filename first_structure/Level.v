@@ -21,11 +21,11 @@ Module Type Intf.
     (color lvl <> Red \/ is_empty lvl) -> t A.
 
   Parameter equilibrate :
-    forall {A:Set}, 
+    forall {A:Set}, forall last_levels : Prop,
       { lvli : t A | color lvli = Red }
       -> option { lvlSi : t (A * A) | color lvlSi <> Red }
       -> { lvli : t A | color lvli = Green } *
-         option { lvlSi : t (A * A) | color lvlSi <> Red }.
+         { lvlSi : t (A * A) | color lvlSi <> Red \/ (is_empty lvlSi /\ last_levels) }.
 
   Axiom empty_is_red : forall A, forall lvl:t A, is_empty lvl -> color lvl = Red.
 

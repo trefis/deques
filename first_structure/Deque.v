@@ -33,6 +33,12 @@ Module Make (Lvl : Level.Intf).
       | Cons _ yellows => all_yellows (prod A A) yellows
       end.
 
+    Definition real_empty {A : Set} (s : t A) :=
+      match s with
+      | Empty => True
+      | _ => False
+      end.
+
     Definition is_empty {A : Set} (s : t A) :=
       match s with
       | Cons lvl Empty => Lvl.is_empty lvl
@@ -188,6 +194,12 @@ Module Make (Lvl : Level.Intf).
     exact (proj2_sig (Lvl.empty A)).
   Qed.
 
+  Definition is_empty {A : Set} (d : t A) : Prop :=
+    match d with
+    | ∅ => True
+    | _ ++ _ => False
+    end.
+
   Program Definition do_regularize {A : Set} (d : t A) (p : semi_regular d) :
     { d : t A | strongly_regular d } :=
     match d with
@@ -200,22 +212,18 @@ Module Make (Lvl : Level.Intf).
       | Yellow => !
       | Green => d (* nothing to do *)
       | Red =>
-        let (lvli, lvlSi) := Lvl.equilibrate lvli None in
-        match lvlSi with
-        | None => (S.Cons lvli (S.Empty (prod A A))) ++ (∅ (prod A A))
-        | Some lvlSi =>
-          match Lvl.color lvlSi with
-          | Red => !
-          | Green =>
-            let AA : Set := prod A A in
-            (S.Cons lvli (S.Empty AA))
-            ++ (S.Cons lvlSi (S.Empty (prod AA AA)))
-            ++ (∅ (prod AA AA))
-          | Yellow =>
-            let AA : Set := prod A A in
-            (S.Cons lvli (S.Cons lvlSi (S.Empty (prod AA AA))))
-            ++ (∅ (prod AA AA))
-          end
+        let (lvli, lvlSi) := Lvl.equilibrate True lvli None in
+        match Lvl.color lvlSi with
+        | Red => (S.Cons lvli (S.Empty (prod A A))) ++ (∅ (prod A A))
+        | Green =>
+          let AA : Set := prod A A in
+          (S.Cons lvli (S.Empty AA))
+          ++ (S.Cons lvlSi (S.Empty (prod AA AA)))
+          ++ (∅ (prod AA AA))
+        | Yellow =>
+          let AA : Set := prod A A in
+          (S.Cons lvli (S.Cons lvlSi (S.Empty (prod AA AA))))
+          ++ (∅ (prod AA AA))
         end
       end
     (* general case *)
@@ -225,9 +233,10 @@ Module Make (Lvl : Level.Intf).
       | Yellow => !
       | Green => d (* nothing to do *)
       | Red =>
-        let (lvli, lvlSi) := Lvl.equilibrate lvli (Some lvlSi) in
-        match lvlSi with
-        | None =>
+        let last_levels := S.real_empty yellows /\ is_empty stacks in
+        let (lvli, lvlSi) := Lvl.equilibrate last_levels lvli (Some lvlSi) in
+        match Lvl.color lvlSi with
+        | Red =>
           (* FIXME: I don't want to nest matchings like that, but Coq fails to
            * typecheck if I don't. (see the commented code just below)
            *
@@ -252,13 +261,9 @@ Module Make (Lvl : Level.Intf).
           | _, _ => ! (* lvlSi is removed only if it is the last level. *)
           end
           *)
-        | Some lvlSi =>
-          match Lvl.color lvlSi with
-          | Red => !
-          | Yellow => (S.Cons lvli (S.Cons lvlSi yellows)) ++ stacks
-          | Green =>
-            (S.Cons lvli (S.Empty (prod A A))) ++ (S.Cons lvlSi yellows) ++ stacks
-          end
+        | Yellow => (S.Cons lvli (S.Cons lvlSi yellows)) ++ stacks
+        | Green =>
+          (S.Cons lvli (S.Empty (prod A A))) ++ (S.Cons lvlSi yellows) ++ stacks
         end
       end
     (* absurd cases *)
@@ -276,7 +281,7 @@ Module Make (Lvl : Level.Intf).
   Proof. simpl; rewrite <- Heq_anonymous; auto. Qed.
 
   Next Obligation.
-  Proof. rewrite H ; auto. Qed.
+  Proof. rewrite H0 ; auto. Qed.
 
   Next Obligation.
   Proof. rewrite H0; rewrite <- Heq_anonymous0; firstorder. Qed.
@@ -294,29 +299,13 @@ Module Make (Lvl : Level.Intf).
   Proof. firstorder; rewrite H ; discriminate. Qed.
 
   Next Obligation.
-  Proof. rewrite H; auto. Qed.
+  Proof. rewrite H0; auto. Qed.
 
   Next Obligation.
-  Proof.
-    contradict H.
-    (* Here we want to prove that if [Level.equilibrate] removes the second
-     * level, that level was the last one of the deque.
-     * Unfortunately, I don't think that can be proved with the hypothesis we
-     * have at hand.
-     * That fact isn't proved in the original paper either, it merely says
-     * "level i+1 must be the bottom most level". And that obligation doesn't
-     * come from the (semi-)regularity of the structure, it is indeed possible
-     * exhibit a semi-regular deque such that the "regularisation" operation
-     * described in the paper would, if called on that deque, remove a level
-     * which isn't the bottomest one.
-     * So we must admit here (and maybe prove later) that we will never
-     * encounter such shaped deques. *)
-     admit.
-  Qed.
+  Proof. destruct stacks ; firstorder. Qed.
 
   Next Obligation.
-    (* Same obligation as earlier. *)
-  Admitted.
+  Proof. destruct yellows ; firstorder. Qed.
 
   Next Obligation.
   Proof. firstorder; rewrite H0; trivial. Qed.
@@ -348,13 +337,13 @@ Module Make (Lvl : Level.Intf).
   Qed.
 
   Next Obligation.
-  Proof. rewrite H ; auto. Qed.
+  Proof. rewrite H0 ; auto. Qed.
 
   Next Obligation.
-  Admitted. (* once again *)
+  Proof. destruct stacks ; firstorder. Qed.
 
   Next Obligation.
-  Admitted. (* and again *)
+  Proof. destruct yellows ; firstorder. Qed.
 
   Next Obligation.
   Proof. firstorder; rewrite H0; trivial. Qed.
