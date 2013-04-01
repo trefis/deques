@@ -7,15 +7,17 @@ Level.vo: Level.v Misc.vo
 Deque.vo: Deque.v Misc.vo Level.vo
 	coqc Deque.v
 
-all: Misc.vo Level.vo Deque.vo
-
 extract: Extractor.v Deque.vo
 	coqtop -l Extractor.v -batch
+
+all: Misc.vo Level.vo Deque.vo
 
 refresh: Misc.vo Level.vo
 
 clean:
 	rm *.vo
 	rm *.glob
+	rm deque.ml
+	rm deque.mli
 
-.PHONY: refresh clean all
+.PHONY: refresh clean all extract
