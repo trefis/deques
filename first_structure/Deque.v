@@ -448,11 +448,8 @@ Module Make (Lvl : Level.Intf).
 
   Next Obligation.
   Proof.
-    destruct (Lvl.color (Lvl.push elt (` (Lvl.empty A)) _)) eqn:Color ; auto.
-    contradict Color.
-    (* yet another case we can't prove :
-     *   Lvl.color Lvl.(push elt empty) <> Red *)
-    admit.
+    rewrite Lvl.push_on_empty_yellowifies ; auto.
+    exact (proj2_sig (Lvl.empty A)).
   Qed.
 
   Next Obligation.

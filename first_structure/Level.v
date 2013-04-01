@@ -27,6 +27,10 @@ Module Type Intf.
       -> { lvli : t A | color lvli = Green } *
          { lvlSi : t (A * A) | color lvlSi <> Red \/ (is_empty lvlSi /\ last_levels) }.
 
+  Axiom push_on_empty_yellowifies : (* yes, that's now a verb. *)
+    forall A:Set, forall elt : A, forall lvl : t A, forall p,
+      is_empty lvl -> color (push elt lvl p) = Yellow.
+
   Axiom empty_is_red : forall A, forall lvl:t A, is_empty lvl -> color lvl = Red.
 
   Axiom empty_is_red_contr : (* yes, I'm lazy *)
