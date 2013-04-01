@@ -188,37 +188,6 @@ Module Make (Lvl : Level.Intf).
     exact (proj2_sig (Lvl.empty A)).
   Qed.
 
-  Program Definition dirty_push {A : Set} (elt : A) (d : t A | regular d) : t A :=
-    match d with
-    | ∅ =>
-      let empty_stack := ` (S.empty A) in
-      let singleton := S.push elt empty_stack _ in
-      singleton ++ ( ∅ (S.type_of_last_lvl singleton) )
-    | stack ++ stacks =>
-      (Stack.push elt stack _) ++ ((fun _ => _) stacks)
-    end.
-
-  Next Obligation.
-  Proof. right. exact (proj2_sig (Lvl.empty A)). Qed.
-
-  Next Obligation.
-  Proof.
-    intuition.
-    destruct stacks, stack ; firstorder; unfold regular in H.
-      destruct (Stack.top_color (S.Cons t0 stack)) eqn:Heq.
-        left ; intros ; discriminate.
-        left ; intros ; discriminate.
-        right ; assumption.
-
-      left ; intros; simpl in H ; simpl in H0 ; rewrite H0 in H ; intuition.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    autorewrite with stack.
-    exact H.
-  Qed.
-
   Program Definition do_regularize {A : Set} (d : t A) (p : semi_regular d) :
     { d : t A | strongly_regular d } :=
     match d with
