@@ -5,7 +5,17 @@ Require Import List.
 Require Import Misc.
 Require Level.
 
-Module Make (Lvl : Level.Intf).
+Module Type Intf.
+  Parameter t : Set -> Set.
+
+  Parameter regular : forall {A:Set}, t A -> Prop.
+
+  Parameter empty : forall A, { d : t A | regular d }.
+
+  Parameter push : forall A:Set, A -> { d : t A | regular d } -> { d : t A | regular d }.
+End Intf.
+
+Module Make (Lvl : Level.Intf) : Intf.
 
   Module Stack.
     Inductive t (A : Set) : Set :=
@@ -96,9 +106,11 @@ Module Make (Lvl : Level.Intf).
 
   Module S := Stack.
 
-  Inductive t (A : Set) : Set :=
-    | Nil : t A
-    | Cons : forall s : S.t A, t (S.type_of_last_lvl s) -> t A.
+  Inductive deque (A : Set) : Set :=
+    | Nil : deque A
+    | Cons : forall s : S.t A, deque (S.type_of_last_lvl s) -> deque A.
+
+  Definition t := deque.
 
   Arguments Cons [A] _ _.
 
@@ -486,10 +498,10 @@ Module Make (Lvl : Level.Intf).
     Proof.
       intros.
       unfold regular in H ; destruct stack.
-        simpl in * |- *; destruct deque ; auto.
+        simpl in * |- *; destruct deque0 ; auto.
         destruct (Stack.top_color (S.Cons t0 stack)) eqn:Color ; solve [
           (inversion H; assumption) |
-          (destruct deque ; destruct stack ; firstorder)
+          (destruct deque0 ; destruct stack ; firstorder)
         ].
     Qed.
   Proof.
