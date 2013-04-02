@@ -31,6 +31,10 @@ Module Type Intf.
     forall A:Set, forall elt : A, forall lvl : t A, forall p,
       is_empty lvl -> color (push elt lvl p) = Yellow.
 
+  Axiom red_after_yellow :
+    forall A:Set, forall elt : A, forall lvl : t A, forall p,
+      color (push elt lvl p) = Red -> color lvl = Yellow.
+
   Axiom empty_is_red : forall A, forall lvl:t A, is_empty lvl -> color lvl = Red.
 
   Axiom empty_is_red_contr : (* yes, I'm lazy *)

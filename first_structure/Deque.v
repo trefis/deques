@@ -485,11 +485,20 @@ Module Make (Lvl : Level.Intf) : Intf.
   Qed.
 
   Next Obligation.
-  Proof.
-    (* The result of [Stack.push] begins with a Red level, that implicates that
-     * what was given to [push] was Yellow, therefore [green_first stacks] holds.
-     * However Coq doesn't know that. *)
-  Admitted.
+  Proof. (* draft *)
+    destruct stack.
+      destruct stacks ; firstorder.
+    simpl in H.
+    apply Lvl.red_after_yellow in H.
+    unfold regular in H0; unfold Stack.top_color in H0.  
+    (* that's here because I can't rewrite in H0 since the goal depends on it *)
+    assert (strongly_regular stacks).
+      rewrite H in H0 ; intuition.
+    (* that's where I would like Coq to know that push_obligation_4 is an
+     * identity... *)
+    unfold strongly_regular in H1.
+    destruct stacks; simpl; admit.
+  Qed.
 
   Next Obligation.
     Lemma regdeque_impl_regstack :
