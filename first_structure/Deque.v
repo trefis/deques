@@ -1,3 +1,6 @@
+(* ab :coerce: ⨞ *)
+(* ab neo. Next Obligation. *)
+
 Require Import Program.
 Require Import Coq.Arith.Bool_nat.
 Require Import List.
@@ -15,48 +18,52 @@ Module Type Intf.
   Parameter push : forall A:Set, A -> { d : t A | regular d } -> { d : t A | regular d }.
 End Intf.
 
+Notation "⨞ x" := ((fun _ => _) ((fun i => i) x)) (at level 1).
+
 Module Make (Lvl : Level.Intf) : Intf.
 
   Module Stack.
-    Inductive t (A : Set) : Set :=
-      | Empty : t A
-      | Cons  : Lvl.t A -> t (A * A) -> t A.
+    Inductive t (A : Set) : Set -> Type :=
+      | Empty : t A A
+      | Cons  : forall B:Set, Lvl.t A -> t (A * A) B -> t A B.
 
-    Arguments Cons [A] _ _.
+    Arguments Cons [A] [B] _ _.
 
-    Definition top_color {A : Set} (stack : t A) :=
+    Notation "a ::: b" := (@Cons _ _ a b) (at level 40).
+
+    Definition top_color {A B : Set} (stack : t A B) :=
       match stack with
       | Empty => Red
-      | Cons toplvl _ => Lvl.color toplvl
+      | toplvl ::: _ => Lvl.color toplvl
       end.
 
-    Definition regular {A : Set} (s : t A) :=
+    Program Definition regular {A B : Set} (s : t A B) :=
       let all_yellows :=
-        fix f (B : Set) (s : t B) : Prop :=
+        fix f (A : Set) (s : t A B) : Prop :=
           match s with
           | Empty => True
-          | Cons lvl rest => (Lvl.color lvl = Yellow) /\ f (prod B B) rest
+          | lvl ::: rest => (Lvl.color lvl = Yellow) /\ f (prod A A) (⨞ rest)
           end
       in
       match s with
       | Empty => False
-      | Cons _ yellows => all_yellows (prod A A) yellows
+      | _ ::: yellows => all_yellows (prod A A) ( ⨞ yellows )
       end.
 
-    Definition real_empty {A : Set} (s : t A) :=
+    Definition real_empty {A B : Set} (s : t A B) :=
       match s with
       | Empty => True
       | _ => False
       end.
 
-    Definition is_empty {A : Set} (s : t A) :=
+    Definition is_empty {A B : Set} (s : t A B) :=
       match s with
-      | Cons lvl Empty => Lvl.is_empty lvl
+      | lvl ::: Empty => Lvl.is_empty lvl
       | _ => False
       end.
 
     Theorem dec_is_empty :
-        forall {A}, forall s : t A, {is_empty s} + {~ is_empty s}.
+        forall {A B}, forall s : t A B, {is_empty s} + {~ is_empty s}.
     Proof.
       destruct s.
         right ; auto.
@@ -65,57 +72,42 @@ Module Make (Lvl : Level.Intf) : Intf.
           right; auto.
     Qed.
 
-    Program Definition empty (A : Set) : { s : t A | regular s } :=
+    Program Definition empty (A : Set) : { s : t A (A * A) | regular s } :=
       Cons (` (Lvl.empty A)) (Empty _).
 
-    Program Definition push {A : Set} (elt : A) (s : t A)
-      (p : top_color s <> Red \/ is_empty s) : t A :=
+    Program Definition push {A B : Set} (elt : A) (s : t A B)
+      (p : top_color s <> Red \/ is_empty s) : t A B :=
       match s with
       | Empty => !
-      | Cons lvl rest => Cons (Lvl.push elt lvl _) rest
+      | lvl ::: rest => (Lvl.push elt lvl _) ::: rest
       end.
 
     Next Obligation.
-    Proof. intuition. Qed.
+    Proof. rewrite <- Heq_s in p; intuition. Qed.
 
     Next Obligation.
-    Proof. destruct rest ; firstorder. Qed.
-
-    Fixpoint type_of_last_lvl {A : Set} (s : t A) : Set :=
-      match s with
-      | Empty => A
-      | Cons _ rest => type_of_last_lvl rest
-      end.
+    Proof. rewrite <- Heq_s in p; destruct rest ; firstorder. Qed.
 
     Theorem push_preserves_regularity : (* TODO: inject that in the sig of push *)
-      forall A:Set, forall x : A, forall s : t A, forall p,
+      forall A B:Set, forall x : A, forall s : t A B, forall p,
         regular s -> regular (push x s p).
     Proof. intros ; destruct s ; firstorder. Qed.
-
-    Theorem push_on_regular_does_not_deepen :
-      forall A : Set, forall x : A, forall s : t A, forall p,
-        type_of_last_lvl s = type_of_last_lvl (push x s p).
-    Proof.
-      intros ; destruct s.
-        destruct p ; intuition.
-        auto.
-    Qed.
-
-    Hint Rewrite <- push_on_regular_does_not_deepen : stack.
   End Stack.
 
   Module S := Stack.
 
-  Inductive deque (A : Set) : Set :=
+  Inductive deque (A : Set) : Type :=
     | Nil : deque A
-    | Cons : forall s : S.t A, deque (S.type_of_last_lvl s) -> deque A.
+    | Cons : forall B : Set, forall s : S.t A B, deque B -> deque A.
 
   Definition t := deque.
 
-  Arguments Cons [A] _ _.
+  Arguments Cons [A B] _ _.
 
   Notation "∅" := Nil.
   Notation "x ++ y" := (Cons x y).
+
+  Notation "x ::: y" := (@S.Cons _ _ x y) (at level 40).
 
   Fixpoint no_yellow_on_top {A : Set} (d : t A) : Prop :=
     match d with
@@ -198,7 +190,7 @@ Module Make (Lvl : Level.Intf) : Intf.
 
   Program Definition empty (A : Set) : { d : t A | regular d } :=
     let empty_stack := ` (S.empty A) in
-    empty_stack ++ (∅ (S.type_of_last_lvl empty_stack)).
+    empty_stack ++ (∅ (prod A A)).
 
   Next Obligation.
   Proof.
@@ -219,7 +211,7 @@ Module Make (Lvl : Level.Intf) : Intf.
     (* shitty case: last lvl *)
     (* N.B. if [color lvli = Red] either [d] is empty, or we are in the
      * "One-Buffer Case". *)
-    | (S.Cons lvli S.Empty) ++ ∅ =>
+    | (lvli ::: S.Empty) ++ ∅ =>
       match Lvl.color lvli with
       | Yellow => !
       | Green => d (* nothing to do *)
@@ -239,8 +231,8 @@ Module Make (Lvl : Level.Intf) : Intf.
         end
       end
     (* general case *)
-    | (S.Cons lvli (S.Cons lvlSi yellows)) ++ stacks
-    | (S.Cons lvli S.Empty) ++ (S.Cons lvlSi yellows) ++ stacks =>
+    | (lvli ::: (lvlSi ::: yellows)) ++ stacks
+    | (lvli ::: S.Empty) ++ (lvlSi ::: yellows) ++ stacks =>
       match Lvl.color lvli with
       | Yellow => !
       | Green => d (* nothing to do *)
