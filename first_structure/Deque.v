@@ -204,14 +204,36 @@ Module Make (Lvl : Level.Intf) : Intf.
     | _ ++ _ => False
     end.
 
+  Inductive regularization_cases (A : Set) : t A -> Type :=
+    | empty_case : regularization_cases A (∅ A)
+    | one_buffer_case :
+      forall lvli : Lvl.t A,
+        regularization_cases A ((lvli ::: (S.Empty _)) ++ (∅ _)) 
+    | general_case1 :
+        forall B : Set,
+        forall lvli : Lvl.t A, forall lvlSi : Lvl.t (A * A),
+        forall yellows : S.t ((A * A) * (A * A)) B,
+        forall stacks : t B,
+        regularization_cases A
+            ((lvli ::: (lvlSi ::: yellows)) ++ stacks)
+    | general_case2 :
+        forall B : Set,
+        forall lvli : Lvl.t A, forall lvlSi : Lvl.t (A * A),
+        forall yellows : S.t ((A * A) * (A * A)) B,
+        forall stacks : t B,
+        regularization_cases A
+            ((lvli ::: (S.Empty _)) ++ (lvlSi ::: yellows) ++ stacks).
+
+  Parameter discrim : forall A : Set, forall d : t A, regularization_cases A d.
+
   Program Definition do_regularize {A : Set} (d : t A) (p : semi_regular d) :
     { d : t A | strongly_regular d } :=
-    match d with
-    | ∅ => ∅ A
+    match discrim A d with
+    | empty_case => ∅ A
     (* shitty case: last lvl *)
     (* N.B. if [color lvli = Red] either [d] is empty, or we are in the
      * "One-Buffer Case". *)
-    | (lvli ::: S.Empty) ++ ∅ =>
+    | one_buffer_case lvli =>
       match Lvl.color lvli with
       | Yellow => !
       | Green => d (* nothing to do *)
@@ -231,8 +253,8 @@ Module Make (Lvl : Level.Intf) : Intf.
         end
       end
     (* general case *)
-    | (lvli ::: (lvlSi ::: yellows)) ++ stacks
-    | (lvli ::: S.Empty) ++ (lvlSi ::: yellows) ++ stacks =>
+    | general_case1 B lvli lvlSi yellows stacks
+    | general_case2 B lvli lvlSi yellows stacks =>
       match Lvl.color lvli with
       | Yellow => !
       | Green => d (* nothing to do *)
@@ -270,8 +292,6 @@ Module Make (Lvl : Level.Intf) : Intf.
           (S.Cons lvli (S.Empty (prod A A))) ++ (S.Cons lvlSi yellows) ++ stacks
         end
       end
-    (* absurd cases *)
-    | _ => !
     end.
 
   Next Obligation.
