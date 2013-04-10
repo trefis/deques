@@ -259,7 +259,8 @@ Module Make (Lvl : Level.Intf) : Intf.
   Next Obligation.
   Proof. rewrite H0 ; rewrite <- Heq_anonymous0 ; tauto. Qed.
 
-  Program Definition General_case (A B : Set) lvli lvlSi yellows stacks
+  Program Definition General_case (A B : Set) (lvli : Lvl.t A)
+    (lvlSi : Lvl.t (A * A)) (yellows : S.t ((A * A) * (A * A)) B) (stacks : t B)
     (p : Lvl.color lvli <> Yellow) : { d : t A | strongly_regular d } :=
     match Lvl.color lvli with
     | Yellow => !
