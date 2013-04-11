@@ -9,7 +9,7 @@ Require Import Misc.
 Require Level.
 
 Module Type Intf.
-  Parameter t : Set -> Set.
+  Parameter t : Set -> Type.
 
   Parameter regular : forall {A:Set}, t A -> Prop.
 
@@ -37,17 +37,16 @@ Module Make (Lvl : Level.Intf) : Intf.
       | toplvl ::: _ => Lvl.color toplvl
       end.
 
+    Fixpoint all_yellows {A B : Set} (s : t A B) :=
+      match s with
+      | Empty => True
+      | lvl ::: rest => (Lvl.color lvl = Yellow) /\ all_yellows rest
+      end.
+
     Program Definition regular {A B : Set} (s : t A B) :=
-      let all_yellows :=
-        fix f (A : Set) (s : t A B) : Prop :=
-          match s with
-          | Empty => True
-          | lvl ::: rest => (Lvl.color lvl = Yellow) /\ f (prod A A) (⨞ rest)
-          end
-      in
       match s with
       | Empty => False
-      | _ ::: yellows => all_yellows (prod A A) ( ⨞ yellows )
+      | _ ::: yellows => all_yellows yellows
       end.
 
     Definition real_empty {A B : Set} (s : t A B) :=
@@ -262,31 +261,7 @@ Module Make (Lvl : Level.Intf) : Intf.
         let last_levels := S.real_empty yellows /\ is_empty stacks in
         let (lvli, lvlSi) := Lvl.equilibrate last_levels lvli (Some lvlSi) in
         match Lvl.color lvlSi with
-        | Red =>
-          (* FIXME: I don't want to nest matchings like that, but Coq fails to
-           * typecheck if I don't. (see the commented code just below)
-           *
-           * With the [return ...] there are obligations you can't even try to
-           * solve (or admit) because it will fail to type then (resulting in an
-           * uncaught exception when using [Admit Obligations].
-           *   (N.B. that happens with [t A] as return type, or the one present
-           *    in the comment at the moment.)
-           *
-           * Withouth the [return] it just refuses to type the definition. *)
-          match yellows with
-          | S.Empty =>
-            match stacks with
-            | ∅ => S.Cons lvli (S.Empty (prod A A)) ++ (∅ (prod A A))
-            | _ => !
-            end
-          | _ => !
-          end
-            (*
-          match yellows, stacks return { d : t A | strongly_regular d } with
-          | S.Empty, ∅ => (S.Cons lvli (S.Empty (prod A A))) ++ (∅ (prod A A))
-          | _, _ => ! (* lvlSi is removed only if it is the last level. *)
-          end
-          *)
+        | Red => _
         | Yellow => (S.Cons lvli (S.Cons lvlSi yellows)) ++ stacks
         | Green =>
           (S.Cons lvli (S.Empty (prod A A))) ++ (S.Cons lvlSi yellows) ++ stacks
@@ -297,43 +272,46 @@ Module Make (Lvl : Level.Intf) : Intf.
   Next Obligation.
   Proof.
     unfold semi_regular in p; intuition.
-    simpl in H2; rewrite <- Heq_anonymous in H2.
+    simpl in H2; rewrite <- Heq_anonymous0 in H2.
     trivial.
   Qed.
 
   Next Obligation.
-  Proof. simpl; rewrite <- Heq_anonymous; auto. Qed.
+  Proof. simpl; rewrite <- Heq_anonymous0; auto. Qed.
 
   Next Obligation.
   Proof. rewrite H0 ; auto. Qed.
 
   Next Obligation.
-  Proof. rewrite H0; rewrite <- Heq_anonymous0; firstorder. Qed.
+  Proof. rewrite H0; rewrite <- Heq_anonymous1; firstorder. Qed.
 
   Next Obligation.
-  Proof. rewrite H0 ; rewrite <- Heq_anonymous0; auto. Qed.
+  Proof. rewrite H0 ; rewrite <- Heq_anonymous1; auto. Qed.
 
   Next Obligation.
-  Proof. firstorder; simpl in H2; rewrite <- Heq_anonymous in H2; trivial. Qed.
+  Proof. firstorder; simpl in H2; rewrite <- Heq_anonymous0 in H2; trivial. Qed.
 
   Next Obligation.
-  Proof. firstorder; simpl; rewrite <- Heq_anonymous; trivial. Qed.
+  Proof. firstorder; simpl; rewrite <- Heq_anonymous0; trivial. Qed.
 
   Next Obligation.
   Proof. firstorder; rewrite H ; discriminate. Qed.
 
   Next Obligation.
-  Proof. rewrite H0; auto. Qed.
+  Proof.
+    destruct yellows, stacks ; solve [
+      (
+        pose ( d := (lvli0 ::: S.Empty (prod A A)) ++ Nil (prod A A) ) ;
+        assert (strongly_regular d); [
+          (simpl; rewrite H0; tauto) |
+          exact (exist strongly_regular d H1)
+        ]
+      ) |
 
-  Next Obligation.
-  Proof. destruct stacks ; firstorder. Qed.
-
-  Next Obligation.
-  Proof. destruct yellows ; firstorder. Qed.
-
-  Next Obligation.
-  Proof. firstorder; rewrite H0; trivial. Qed.
-
+      (contradict H; firstorder)
+  ].
+  Qed.
+  
   Next Obligation.
   Proof.
     firstorder; first [ rewrite H0 | rewrite <- Heq_anonymous0 ] ; trivial.
@@ -341,68 +319,63 @@ Module Make (Lvl : Level.Intf) : Intf.
 
   Next Obligation.
   Proof.
+    rewrite H0 ; rewrite <- Heq_anonymous1.
+    repeat split; inversion p.
+      inversion H1; assumption.
+      inversion H2; assumption.
+  Qed.
+
+  Next Obligation.
+  Proof.
     inversion p ; inversion H0.
-    simpl in H2 ; rewrite <- Heq_anonymous in H2.
+    simpl in H2 ; rewrite <- Heq_anonymous0 in H2.
     trivial.
   Qed.
 
   Next Obligation.
   Proof.
     constructor.
-      simpl ; rewrite <- Heq_anonymous ; trivial.
+      simpl ; rewrite <- Heq_anonymous0 ; trivial.
       trivial.
   Qed.
 
   Next Obligation.
   Proof.
     inversion p ; inversion H0.
-    simpl in H2 ; rewrite <- Heq_anonymous in H2.
+    simpl in H2 ; rewrite <- Heq_anonymous0 in H2.
     destruct (Lvl.color lvlSi) ; try discriminate || contradict H2 ; trivial.
   Qed.
 
   Next Obligation.
-  Proof. rewrite H0 ; auto. Qed.
+  Proof. 
+    destruct yellows, stacks ; solve [
+      (
+        pose ( d := (lvli0 ::: S.Empty (prod A A)) ++ Nil (prod A A) ) ;
+        assert (strongly_regular d); [
+          (simpl; rewrite H0; tauto) |
+          exact (exist strongly_regular d H1)
+        ]
+      ) |
 
-  Next Obligation.
-  Proof. destruct stacks ; firstorder. Qed.
-
-  Next Obligation.
-  Proof. destruct yellows ; firstorder. Qed.
-
-  Next Obligation.
-  Proof. firstorder; rewrite H0; trivial. Qed.
-
+      (contradict H; firstorder)
+  ].
+  Qed.
+  
   Next Obligation.
   Proof.
     firstorder; first [ rewrite H0 | rewrite <- Heq_anonymous0 ] ; trivial.
   Qed.
 
-  (* Absurd case (finally) *)
   Next Obligation.
   Proof.
-    destruct d ; firstorder.
-    destruct s ; firstorder.
-    destruct d, s ; intuition.
-      apply H with (lvli := t0) ; reflexivity.
-      apply H0 with (lvli := t0) (lvlSi := t1) (yellows := s)
-        (stacks := ∅ (S.type_of_last_lvl s)) ; reflexivity.
-
-      destruct s0 ; firstorder.
-      apply H1 with (lvli := t0) (lvlSi := t1) (yellows := s0)
-        (stacks := d) ; reflexivity.
-
-      apply H0 with (lvli := t0) (lvlSi := t1) (yellows := s)
-        (stacks := s0 ++ d) ; reflexivity.
+    rewrite H0 ; rewrite <- Heq_anonymous1.
+    repeat split; inversion p; inversion H2; inversion H3.
+      assumption.
+      inversion H6. assumption.
   Qed.
 
-  Next Obligation.
-  Proof. intuition; discriminate. Qed.
-
-  Next Obligation.
-  Proof. intuition ; discriminate. Qed.
-
-  Program Definition regularize {A : Set} (top_stack : Stack.t A)
-    (rest : t (Stack.type_of_last_lvl top_stack) | semi_regular rest)
+  Program Definition regularize {A B : Set} (top_stack : Stack.t A B)
+    (rest : t B | semi_regular rest)
     (H0 : Stack.top_color top_stack = Red -> green_first rest)
     (H1 : Stack.regular top_stack) :
     { d : t A | regular d } :=
@@ -461,10 +434,10 @@ Module Make (Lvl : Level.Intf) : Intf.
     | ∅ =>
       let empty_stack := ` (S.empty A) in
       let singleton := S.push elt empty_stack _ in
-      singleton ++ ( ∅ (S.type_of_last_lvl singleton) )
+      singleton ++ ( ∅ (prod A A) )
     | stack ++ stacks =>
       let top_stack := Stack.push elt stack _ in
-      regularize top_stack ((fun _ => _) stacks) _ _
+      regularize top_stack stacks _ _
     end.
 
   Next Obligation.
@@ -490,10 +463,7 @@ Module Make (Lvl : Level.Intf) : Intf.
 
   Next Obligation.
   Proof.
-    autorewrite with stack.
-    cut (semi_regular stacks).
-      intro p ; exact (exist semi_regular stacks p).
-    simpl in H0 ; destruct (S.top_color stack) ; destruct stacks ; firstorder.
+    simpl in H ; destruct (S.top_color stack) ; destruct stacks ; firstorder.
   Qed.
 
   Next Obligation.
@@ -502,19 +472,16 @@ Module Make (Lvl : Level.Intf) : Intf.
       destruct stacks ; firstorder.
     simpl in H.
     apply Lvl.red_after_yellow in H.
-    unfold regular in H0; unfold Stack.top_color in H0.  
-    (* that's here because I can't rewrite in H0 since the goal depends on it *)
-    assert (strongly_regular stacks).
-      rewrite H in H0 ; intuition.
-    (* that's where I would like Coq to know that push_obligation_4 is an
-     * identity... *)
-    unfold strongly_regular in H1.
-    destruct stacks; simpl; admit.
+    unfold regular in H0. unfold Stack.top_color in H0.  
+    rewrite H in H0.
+    intuition.
+    unfold strongly_regular in H2.
+    destruct stacks; simpl ; firstorder.
   Qed.
 
   Next Obligation.
     Lemma regdeque_impl_regstack :
-      forall A:Set, forall stack:S.t A, forall deque: t (S.type_of_last_lvl stack),
+      forall A B:Set, forall stack:S.t A B, forall deque: t B,
         regular (stack ++ deque) -> S.regular stack.
     Proof.
       intros.
