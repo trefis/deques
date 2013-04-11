@@ -1,3 +1,4 @@
+(* ab :o: ∅ *)
 (* ab :coerce: ⨞ *)
 (* ab neo. Next Obligation. *)
 
@@ -223,11 +224,36 @@ Module Make (Lvl : Level.Intf) : Intf.
         regularization_cases A
             ((lvli ::: (S.Empty _)) ++ (lvlSi ::: yellows) ++ stacks).
 
-  Parameter discrim : forall A : Set, forall d : t A, regularization_cases A d.
+(*  Program Definition discrim (A : Set) (d : t A) (p : semi_regular d)
+    : regularization_cases A d :=
+    match d with
+    | ∅ => empty_case A
+    | stack1 ++ stacks =>
+      match stack1 with
+      | S.Empty => !
+      | lvli ::: S.Empty =>
+        match stacks with
+        | stack2 :: 
+    end. *)
+
+  Definition discrim (A : Set) (d : t A) (p : semi_regular d) : regularization_cases A d.
+  Proof.
+    destruct d.
+      constructor. (* empty case *)
+      dependent destruction s.
+        inversion p; inversion H. (* absurd case 1 *)
+        dependent destruction s.
+          destruct d.
+            constructor.
+            dependent destruction s.
+              inversion p; inversion H0; inversion H1; inversion H3.
+              constructor.
+          constructor.
+  Qed.
 
   Program Definition do_regularize {A : Set} (d : t A) (p : semi_regular d) :
     { d : t A | strongly_regular d } :=
-    match discrim A d with
+    match discrim A d p with
     | empty_case => ∅ A
     (* shitty case: last lvl *)
     (* N.B. if [color lvli = Red] either [d] is empty, or we are in the
@@ -271,7 +297,7 @@ Module Make (Lvl : Level.Intf) : Intf.
 
   Next Obligation.
   Proof.
-    unfold semi_regular in p; intuition.
+    inversion p ; intuition.
     simpl in H2; rewrite <- Heq_anonymous0 in H2.
     trivial.
   Qed.
@@ -289,13 +315,20 @@ Module Make (Lvl : Level.Intf) : Intf.
   Proof. rewrite H0 ; rewrite <- Heq_anonymous1; auto. Qed.
 
   Next Obligation.
-  Proof. firstorder; simpl in H2; rewrite <- Heq_anonymous0 in H2; trivial. Qed.
+  Proof.
+    inversion p; intuition.
+    simpl in H2; rewrite <- Heq_anonymous0 in H2; auto.
+  Qed.
 
   Next Obligation.
-  Proof. firstorder; simpl; rewrite <- Heq_anonymous0; trivial. Qed.
+  Proof. 
+    unfold strongly_regular ; split.
+      simpl; rewrite <- Heq_anonymous0; trivial.
+      assumption.
+  Qed.
 
   Next Obligation.
-  Proof. firstorder; rewrite H ; discriminate. Qed.
+  Proof. inversion p; inversion H; rewrite H1; discriminate. Qed.
 
   Next Obligation.
   Proof.
@@ -314,7 +347,10 @@ Module Make (Lvl : Level.Intf) : Intf.
   
   Next Obligation.
   Proof.
-    firstorder; first [ rewrite H0 | rewrite <- Heq_anonymous0 ] ; trivial.
+    rewrite H0 ; rewrite <- Heq_anonymous1.
+    repeat split; inversion p.
+      inversion H1; assumption.
+      inversion H2; assumption.
   Qed.
 
   Next Obligation.
@@ -363,7 +399,10 @@ Module Make (Lvl : Level.Intf) : Intf.
   
   Next Obligation.
   Proof.
-    firstorder; first [ rewrite H0 | rewrite <- Heq_anonymous0 ] ; trivial.
+    rewrite H0 ; rewrite <- Heq_anonymous1.
+    repeat split; inversion p; inversion H2; inversion H3.
+      assumption.
+      inversion H6. assumption.
   Qed.
 
   Next Obligation.
