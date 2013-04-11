@@ -226,68 +226,6 @@ Module Make (Lvl : Level.Intf) : Intf.
 
   Parameter discrim : forall A : Set, forall d : t A, regularization_cases A d.
 
-  Program Definition One_buffer_case (A : Set) (lvl : Lvl.t A)
-    (p : Lvl.color lvl <> Yellow) : { d : t A | strongly_regular d } :=
-    match Lvl.color lvl with
-    | Yellow => !
-    | Green => (S.Cons lvl (S.Empty (prod A A))) ++ (∅ (prod A A)) (* nothing to do *)
-    | Red =>
-      let (lvli, lvlSi) := Lvl.equilibrate True lvl None in
-      match Lvl.color lvlSi with
-      | Red => (S.Cons lvli (S.Empty (prod A A))) ++ (∅ (prod A A))
-      | Green =>
-        let AA : Set := prod A A in
-        (S.Cons lvli (S.Empty AA))
-        ++ (S.Cons lvlSi (S.Empty (prod AA AA)))
-        ++ (∅ (prod AA AA))
-      | Yellow =>
-        let AA : Set := prod A A in
-        (S.Cons lvli (S.Cons lvlSi (S.Empty (prod AA AA))))
-        ++ (∅ (prod AA AA))
-      end
-    end.
-
-  Next Obligation.
-  Proof. rewrite <- Heq_anonymous; auto. Qed.
-
-  Next Obligation.
-  Proof. rewrite H0; auto. Qed.
-
-  Next Obligation.
-  Proof. rewrite H0 ; rewrite <- Heq_anonymous0 ; tauto. Qed.
-
-  Next Obligation.
-  Proof. rewrite H0 ; rewrite <- Heq_anonymous0 ; tauto. Qed.
-
-  Program Definition General_case (A B : Set) (lvli : Lvl.t A)
-    (lvlSi : Lvl.t (A * A)) (yellows : S.t ((A * A) * (A * A)) B) (stacks : t B)
-    (p : Lvl.color lvli <> Yellow) : { d : t A | strongly_regular d } :=
-    match Lvl.color lvli with
-    | Yellow => !
-    | Green =>
-      match Lvl.color lvlSi with
-      | Yellow => (lvli ::: (lvlSi ::: yellows)) ++ stacks
-      | _ => (lvli ::: (S.Empty (prod A A))) ++ (lvlSi ::: yellows) ++ stacks
-      end
-    | Red =>
-      let last_levels := S.real_empty yellows /\ is_empty stacks in
-      let (lvli, lvlSi) := Lvl.equilibrate last_levels lvli (Some lvlSi) in
-      match Lvl.color lvlSi with
-      | Red =>
-        match yellows with
-        | S.Empty =>
-          match stacks with
-          | ∅ => S.Cons lvli (S.Empty (prod A A)) ++ (∅ (prod A A))
-          | _ => !
-          end
-        | _ => !
-        end
-      | Yellow => (S.Cons lvli (S.Cons lvlSi yellows)) ++ stacks
-      | Green =>
-        (S.Cons lvli (S.Empty (prod A A))) ++ (S.Cons lvlSi yellows) ++ stacks
-      end
-    end.
-
   Program Definition do_regularize {A : Set} (d : t A) (p : semi_regular d) :
     { d : t A | strongly_regular d } :=
     match discrim A d with
@@ -295,11 +233,65 @@ Module Make (Lvl : Level.Intf) : Intf.
     (* shitty case: last lvl *)
     (* N.B. if [color lvli = Red] either [d] is empty, or we are in the
      * "One-Buffer Case". *)
-    | one_buffer_case lvli => One_buffer_case A lvli
+    | one_buffer_case lvli =>
+      match Lvl.color lvli with
+      | Yellow => !
+      | Green => d (* nothing to do *)
+      | Red =>
+        let (lvli, lvlSi) := Lvl.equilibrate True lvli None in
+        match Lvl.color lvlSi with
+        | Red => (S.Cons lvli (S.Empty (prod A A))) ++ (∅ (prod A A))
+        | Green =>
+          let AA : Set := prod A A in
+          (S.Cons lvli (S.Empty AA))
+          ++ (S.Cons lvlSi (S.Empty (prod AA AA)))
+          ++ (∅ (prod AA AA))
+        | Yellow =>
+          let AA : Set := prod A A in
+          (S.Cons lvli (S.Cons lvlSi (S.Empty (prod AA AA))))
+          ++ (∅ (prod AA AA))
+        end
+      end
     (* general case *)
     | general_case1 B lvli lvlSi yellows stacks
     | general_case2 B lvli lvlSi yellows stacks =>
-      General_case A B lvli lvlSi yellows stacks
+      match Lvl.color lvli with
+      | Yellow => !
+      | Green => d (* nothing to do *)
+      | Red =>
+        let last_levels := S.real_empty yellows /\ is_empty stacks in
+        let (lvli, lvlSi) := Lvl.equilibrate last_levels lvli (Some lvlSi) in
+        match Lvl.color lvlSi with
+        | Red =>
+          (* FIXME: I don't want to nest matchings like that, but Coq fails to
+           * typecheck if I don't. (see the commented code just below)
+           *
+           * With the [return ...] there are obligations you can't even try to
+           * solve (or admit) because it will fail to type then (resulting in an
+           * uncaught exception when using [Admit Obligations].
+           *   (N.B. that happens with [t A] as return type, or the one present
+           *    in the comment at the moment.)
+           *
+           * Withouth the [return] it just refuses to type the definition. *)
+          match yellows with
+          | S.Empty =>
+            match stacks with
+            | ∅ => S.Cons lvli (S.Empty (prod A A)) ++ (∅ (prod A A))
+            | _ => !
+            end
+          | _ => !
+          end
+            (*
+          match yellows, stacks return { d : t A | strongly_regular d } with
+          | S.Empty, ∅ => (S.Cons lvli (S.Empty (prod A A))) ++ (∅ (prod A A))
+          | _, _ => ! (* lvlSi is removed only if it is the last level. *)
+          end
+          *)
+        | Yellow => (S.Cons lvli (S.Cons lvlSi yellows)) ++ stacks
+        | Green =>
+          (S.Cons lvli (S.Empty (prod A A))) ++ (S.Cons lvlSi yellows) ++ stacks
+        end
+      end
     end.
 
   Next Obligation.
