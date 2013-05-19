@@ -1,8 +1,8 @@
 Misc.vo: Misc.v
 	coqc Misc.v
 
-Level.vo: Level.v Misc.vo
-	coqc Level.v
+Buffer.vo: Buffer.v Misc.vo
+	coqc Buffer.v
 
 Deque.vo: Deque.v Misc.vo Level.vo
 	coqc Deque.v
@@ -10,9 +10,9 @@ Deque.vo: Deque.v Misc.vo Level.vo
 extract: Extractor.v Deque.vo
 	coqtop -l Extractor.v -batch
 
-all: Misc.vo Level.vo Deque.vo
+all: Misc.vo Buffer.vo Deque.vo
 
-refresh: Misc.vo Level.vo
+refresh: Misc.vo Buffer.vo
 
 clean:
 	rm *.vo

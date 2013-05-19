@@ -7,534 +7,341 @@ Require Import Coq.Arith.Bool_nat.
 Require Import List.
 
 Require Import Misc.
-Require Level.
-
-Module Type Intf.
-  Parameter t : Set -> Type.
-
-  Parameter regular : forall {A:Set}, t A -> Prop.
-
-  Parameter empty : forall A, { d : t A | regular d }.
-
-  Parameter push : forall A:Set, A -> { d : t A | regular d } -> { d : t A | regular d }.
-End Intf.
+Require Buffer.
 
 Notation "⨞ x" := ((fun _ => _) ((fun i => i) x)) (at level 1).
 
-Module Make (Lvl : Level.Intf) : Intf.
+Module Lvl.
+  Record t (A : Set) : Set := makeLvl {
+    prefix : Buffer.t A ;
+    suffix : Buffer.t A
+  }.
 
-  Module Stack.
-    Inductive t (A : Set) : Set -> Type :=
-      | Empty : t A A
-      | Cons  : forall B:Set, Lvl.t A -> t (A * A) B -> t A B.
+  Arguments makeLvl [A] _ _.
+  Arguments prefix [A] _. 
+  Arguments suffix [A] _. 
 
-    Arguments Cons [A] [B] _ _.
+  Definition color {A : Set} (lvl : t A) (is_last : bool) :=
+    if Buffer.dec_is_empty lvl.(suffix) then 
+      if is_last then
+        Buffer.color lvl.(prefix)
+      else
+        Red
+    else
+      min_color (Buffer.color lvl.(prefix)) (Buffer.color lvl.(suffix)).
 
-    Notation "a ::: b" := (@Cons _ _ a b) (at level 40).
+  Definition is_empty {A : Set} (lvl : t A) :=
+    Buffer.is_empty (prefix lvl) /\ Buffer.is_empty (suffix lvl).
 
-    Definition top_color {A B : Set} (stack : t A B) :=
-      match stack with
-      | Empty => Red
-      | toplvl ::: _ => Lvl.color toplvl
-      end.
+  Definition dec_is_empty {A : Set} (lvl : t A) :
+    { is_empty lvl } + { ~ is_empty lvl }.
+    destruct lvl ; destruct prefix0, suffix0 ; firstorder.
+  Defined.
 
-    Fixpoint all_yellows {A B : Set} (s : t A B) :=
-      match s with
-      | Empty => True
-      | lvl ::: rest => (Lvl.color lvl = Yellow) /\ all_yellows rest
-      end.
+  Program Definition push {A : Set} (x : A)
+    (t : t A | Buffer.color (prefix t) <> Red \/ Buffer.is_empty (prefix t)) :=
+    makeLvl (Buffer.push x (prefix t)) (suffix t).
 
-    Program Definition regular {A B : Set} (s : t A B) :=
-      match s with
-      | Empty => False
-      | _ ::: yellows => all_yellows yellows
-      end.
+  Definition empty (A : Set) := makeLvl (Buffer.Zero A) (Buffer.Zero A).
 
-    Definition real_empty {A B : Set} (s : t A B) :=
-      match s with
-      | Empty => True
-      | _ => False
-      end.
+  Notation "x ≥ y" := (nat_ge_lt_bool x y) (at level 70, right associativity).
+  (* Notation "x ≤ y" := (le_gt_dec x y) (at level 70, right associativity). *)
 
-    Definition is_empty {A B : Set} (s : t A B) :=
-      match s with
-      | lvl ::: Empty => Lvl.is_empty lvl
-      | _ => False
-      end.
-
-    Theorem dec_is_empty :
-        forall {A B}, forall s : t A B, {is_empty s} + {~ is_empty s}.
-    Proof.
-      destruct s.
-        right ; auto.
-        destruct s ; simpl.
-          apply Lvl.dec_is_empty.
-          right; auto.
-    Qed.
-
-    Program Definition empty (A : Set) : { s : t A (A * A) | regular s } :=
-      Cons (` (Lvl.empty A)) (Empty _).
-
-    Program Definition push {A B : Set} (elt : A) (s : t A B)
-      (p : top_color s <> Red \/ is_empty s) : t A B :=
-      match s with
-      | Empty => !
-      | lvl ::: rest => (Lvl.push elt lvl _) ::: rest
-      end.
-
-    Next Obligation.
-    Proof. rewrite <- Heq_s in p; intuition. Qed.
-
-    Next Obligation.
-    Proof. rewrite <- Heq_s in p; destruct rest ; firstorder. Qed.
-
-    Theorem push_preserves_regularity : (* TODO: inject that in the sig of push *)
-      forall A B:Set, forall x : A, forall s : t A B, forall p,
-        regular s -> regular (push x s p).
-    Proof. intros ; destruct s ; firstorder. Qed.
-  End Stack.
-
-  Module S := Stack.
-
-  Inductive deque (A : Set) : Type :=
-    | Nil : deque A
-    | Cons : forall B : Set, forall s : S.t A B, deque B -> deque A.
-
-  Definition t := deque.
-
-  Arguments Cons [A B] _ _.
-
-  Notation "∅" := Nil.
-  Notation "x ++ y" := (Cons x y).
-
-  Notation "x ::: y" := (@S.Cons _ _ x y) (at level 40).
-
-  Fixpoint no_yellow_on_top {A : Set} (d : t A) : Prop :=
-    match d with
-    | ∅ => True
-    | stack ++ stacks =>
-      match Stack.top_color stack with
-      | Yellow => False
-      | _ => no_yellow_on_top stacks
+  Program Definition two_buffer_case {A} (lvli : t A) (lvlSi : t (A * A))
+    (H : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) >= 2) :=
+    let pairSi : Buffer.t (A * A) * Buffer.t (A * A) :=
+      match Buffer.dec_is_empty (prefix lvlSi), Buffer.dec_is_empty (suffix lvlSi) with
+      | left _, left _ => !
+      | left _, right _ =>
+        let (elt, buff) := Buffer.pop (suffix lvlSi) in
+        pair (Buffer.One (A * A) elt) buff
+      | right _, left _ =>
+        let (elt, buff) := Buffer.eject (prefix lvlSi) in
+        pair buff (Buffer.One (A * A) elt)
+      | _, _ => (prefix lvlSi, suffix lvlSi)
       end
-    end.
-
-  Fixpoint green_first {A : Set} (d : t A) : Prop :=
-    match d with
-    | ∅ => True
-    | stack ++ stacks =>
-      match Stack.top_color stack with
-      | Green => True
-      | Yellow => green_first stacks
-      | Red => False
-      end
-    end.
-
-  Fixpoint semi_regular {A : Set} (d : t A) : Prop :=
-    match d with
-    | ∅ => True
-    | stack ++ stacks =>
-      let green_before_red :=
-        match Stack.top_color stack with
-        | Green => True
-        | Red => green_first stacks
-        | Yellow => False
-        end
-      in
-      Stack.regular stack /\ semi_regular stacks /\ green_before_red
-    end.
-
-  Lemma semi_impl_noyellow :
-    forall A, forall d : t A, semi_regular d -> no_yellow_on_top d.
-  Proof.
-    intros.
-    induction d; auto.
-    inversion H ; inversion H1 ; apply IHd in H2; simpl.
-    destruct (Stack.top_color s) ; assumption.
-  Qed.
-
-  Definition strongly_regular {A : Set} (d : t A) : Prop :=
-    match d with
-    | ∅ => True (* we won't be able to implement [do_regularize] otherwise. *)
-    (* Unless we add another trillion of ad-hoc cases, of course. But that
-     * should be enough. Also, I'm hoping it doesn't break anything elsewhere. *)
-    | _ ++ stacks => green_first d /\ semi_regular d
-    end.
-
-  Definition regular {A : Set} (d : t A) : Prop :=
-    match d with
-    | ∅ => True (* same reason as in [strongly_regular]. *)
-    | top_stack ++ stacks =>
-      match Stack.top_color top_stack with
-      | Yellow => Stack.regular top_stack /\ strongly_regular stacks
-      | Green => semi_regular d
-      | Red =>
-        match stacks with
-        | ∅ => S.is_empty top_stack (* ad-hoc case: the deque is empty *)
-        | _ => False
+    in
+    let (pSi, sSi) := pairSi in
+    let pairP : Buffer.t A * Buffer.t (A * A) :=
+      match Buffer.length (prefix lvli) ≥ 4 with
+      | true =>
+        let (elt1, buff1) := Buffer.eject (prefix lvli) in
+        let Heq_buff1 : (elt1, buff1) = Buffer.eject (prefix lvli) := eq_refl in
+        let (elt2, buff2) := Buffer.eject buff1 in
+        let Heq_buffe2 : (elt2, buff2) = Buffer.eject buff1 := eq_refl in
+        (buff2, Buffer.push (elt2, elt1) pSi)
+      | false =>
+        match 1 ≥ Buffer.length (prefix lvli) with
+        | true =>
+          let (pair, pSi) := Buffer.pop pSi in
+          let (elt1, elt2) := pair in
+          let buff := Buffer.inject elt1 (prefix lvli) in
+          (Buffer.inject elt2 buff, pSi)
+        | false =>
+          (prefix lvli, pSi)
         end
       end
-    end.
-
-  Lemma strongr_impl_r :
-    forall A, forall d : t A, strongly_regular d -> regular d.
-  Proof.
-    intros.
-    destruct d ; auto.
-    destruct s ; firstorder ; unfold regular.
-    destruct (S.top_color (S.Cons t0 s)) eqn:Color.
-      firstorder (rewrite Color); trivial.
-      contradict H2.
-      unfold green_first in H ; rewrite Color in H ; contradict H.
-  Qed.
-
-  Program Definition empty (A : Set) : { d : t A | regular d } :=
-    let empty_stack := ` (S.empty A) in
-    empty_stack ++ (∅ (prod A A)).
-
-  Next Obligation.
-  Proof.
-    destruct (Lvl.color (` (Lvl.empty A))) ; auto.
-    exact (proj2_sig (Lvl.empty A)).
-  Qed.
-
-  Definition is_empty {A : Set} (d : t A) : Prop :=
-    match d with
-    | ∅ => True
-    | _ ++ _ => False
-    end.
-
-  Inductive regularization_cases (A : Set) : t A -> Type :=
-    | empty_case : regularization_cases A (∅ A)
-    | one_buffer_case :
-      forall lvli : Lvl.t A,
-        regularization_cases A ((lvli ::: (S.Empty _)) ++ (∅ _)) 
-    | general_case1 :
-        forall B : Set,
-        forall lvli : Lvl.t A, forall lvlSi : Lvl.t (A * A),
-        forall yellows : S.t ((A * A) * (A * A)) B,
-        forall stacks : t B,
-        regularization_cases A
-            ((lvli ::: (lvlSi ::: yellows)) ++ stacks)
-    | general_case2 :
-        forall B : Set,
-        forall lvli : Lvl.t A, forall lvlSi : Lvl.t (A * A),
-        forall yellows : S.t ((A * A) * (A * A)) B,
-        forall stacks : t B,
-        regularization_cases A
-            ((lvli ::: (S.Empty _)) ++ (lvlSi ::: yellows) ++ stacks).
-
-(*  Program Definition discrim (A : Set) (d : t A) (p : semi_regular d)
-    : regularization_cases A d :=
-    match d with
-    | ∅ => empty_case A
-    | stack1 ++ stacks =>
-      match stack1 with
-      | S.Empty => !
-      | lvli ::: S.Empty =>
-        match stacks with
-        | stack2 :: 
-    end. *)
-
-  Definition discrim (A : Set) (d : t A) (p : semi_regular d) : regularization_cases A d.
-  Proof.
-    destruct d.
-      constructor. (* empty case *)
-      dependent destruction s.
-        inversion p; inversion H. (* absurd case 1 *)
-        dependent destruction s.
-          destruct d.
-            constructor.
-            dependent destruction s.
-              inversion p; inversion H0; inversion H1; inversion H3.
-              constructor.
-          constructor.
-  Qed.
-
-  Program Definition do_regularize {A : Set} (d : t A) (p : semi_regular d) :
-    { d : t A | strongly_regular d } :=
-    match discrim A d p with
-    | empty_case => ∅ A
-    (* shitty case: last lvl *)
-    (* N.B. if [color lvli = Red] either [d] is empty, or we are in the
-     * "One-Buffer Case". *)
-    | one_buffer_case lvli =>
-      match Lvl.color lvli with
-      | Yellow => !
-      | Green => d (* nothing to do *)
-      | Red =>
-        let (lvli, lvlSi) := Lvl.equilibrate True lvli None in
-        match Lvl.color lvlSi with
-        | Red => (S.Cons lvli (S.Empty (prod A A))) ++ (∅ (prod A A))
-        | Green =>
-          let AA : Set := prod A A in
-          (S.Cons lvli (S.Empty AA))
-          ++ (S.Cons lvlSi (S.Empty (prod AA AA)))
-          ++ (∅ (prod AA AA))
-        | Yellow =>
-          let AA : Set := prod A A in
-          (S.Cons lvli (S.Cons lvlSi (S.Empty (prod AA AA))))
-          ++ (∅ (prod AA AA))
+    in
+    let pairS : Buffer.t A * Buffer.t (A * A) :=
+      let (too_many, H_s4) := (Buffer.length (suffix lvli)) ≥ 4 in
+      let (too_few, H_s1) := 1 ≥ (Buffer.length (suffix lvli)) in
+      match (Buffer.length (suffix lvli)) ≥ 4 with
+      | true =>
+        let (elt1, buff) := Buffer.pop (suffix lvli) in
+        let (elt2, buff) := Buffer.pop buff in
+        (buff, Buffer.inject (elt1, elt2) sSi)
+      | false =>
+        match 1 ≥ (Buffer.length (suffix lvli)) with
+        | true =>
+          let (pair, pSi) := Buffer.eject sSi in
+          let (elt1, elt2) := pair in
+          let buff := Buffer.push elt2 (suffix lvli) in
+          (Buffer.push elt1 buff, sSi)
+        | false =>
+          (suffix lvli, sSi)
         end
       end
-    (* general case *)
-    | general_case1 B lvli lvlSi yellows stacks
-    | general_case2 B lvli lvlSi yellows stacks =>
-      match Lvl.color lvli with
-      | Yellow => !
-      | Green => d (* nothing to do *)
-      | Red =>
-        let last_levels := S.real_empty yellows /\ is_empty stacks in
-        let (lvli, lvlSi) := Lvl.equilibrate last_levels lvli (Some lvlSi) in
-        match Lvl.color lvlSi with
-        | Red => _
-        | Yellow => (S.Cons lvli (S.Cons lvlSi yellows)) ++ stacks
-        | Green =>
-          (S.Cons lvli (S.Empty (prod A A))) ++ (S.Cons lvlSi yellows) ++ stacks
-        end
-      end
-    end.
+    in
+    let (pi, pSi) := pairP in
+    let (si, sSi) := pairS in
+    (makeLvl pi si, makeLvl pSi sSi).
 
+  Require Import Omega.
   Next Obligation.
   Proof.
-    inversion p ; intuition.
-    simpl in H2; rewrite <- Heq_anonymous0 in H2.
-    trivial.
-  Qed.
-
-  Next Obligation.
-  Proof. simpl; rewrite <- Heq_anonymous0; auto. Qed.
-
-  Next Obligation.
-  Proof. rewrite H0 ; auto. Qed.
-
-  Next Obligation.
-  Proof. rewrite H0; rewrite <- Heq_anonymous1; firstorder. Qed.
-
-  Next Obligation.
-  Proof. rewrite H0 ; rewrite <- Heq_anonymous1; auto. Qed.
-
-  Next Obligation.
-  Proof.
-    inversion p; intuition.
-    simpl in H2; rewrite <- Heq_anonymous0 in H2; auto.
-  Qed.
-
-  Next Obligation.
-  Proof. 
-    unfold strongly_regular ; split.
-      simpl; rewrite <- Heq_anonymous0; trivial.
-      assumption.
-  Qed.
-
-  Next Obligation.
-  Proof. inversion p; inversion H; rewrite H1; discriminate. Qed.
-
-  Next Obligation.
-  Proof.
-    destruct yellows, stacks ; solve [
-      (
-        pose ( d := (lvli0 ::: S.Empty (prod A A)) ++ Nil (prod A A) ) ;
-        assert (strongly_regular d); [
-          (simpl; rewrite H0; tauto) |
-          exact (exist strongly_regular d H1)
-        ]
-      ) |
-
-      (contradict H; firstorder)
-  ].
-  Qed.
-  
-  Next Obligation.
-  Proof.
-    rewrite H0 ; rewrite <- Heq_anonymous1.
-    repeat split; inversion p.
-      inversion H1; assumption.
-      inversion H2; assumption.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    rewrite H0 ; rewrite <- Heq_anonymous1.
-    repeat split; inversion p.
-      inversion H1; assumption.
-      inversion H2; assumption.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    inversion p ; inversion H0.
-    simpl in H2 ; rewrite <- Heq_anonymous0 in H2.
-    trivial.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    constructor.
-      simpl ; rewrite <- Heq_anonymous0 ; trivial.
-      trivial.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    inversion p ; inversion H0.
-    simpl in H2 ; rewrite <- Heq_anonymous0 in H2.
-    destruct (Lvl.color lvlSi) ; try discriminate || contradict H2 ; trivial.
-  Qed.
-
-  Next Obligation.
-  Proof. 
-    destruct yellows, stacks ; solve [
-      (
-        pose ( d := (lvli0 ::: S.Empty (prod A A)) ++ Nil (prod A A) ) ;
-        assert (strongly_regular d); [
-          (simpl; rewrite H0; tauto) |
-          exact (exist strongly_regular d H1)
-        ]
-      ) |
-
-      (contradict H; firstorder)
-  ].
-  Qed.
-  
-  Next Obligation.
-  Proof.
-    rewrite H0 ; rewrite <- Heq_anonymous1.
-    repeat split; inversion p; inversion H2; inversion H3.
-      assumption.
-      inversion H6. assumption.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    rewrite H0 ; rewrite <- Heq_anonymous1.
-    repeat split; inversion p; inversion H2; inversion H3.
-      assumption.
-      inversion H6. assumption.
-  Qed.
-
-  Program Definition regularize {A B : Set} (top_stack : Stack.t A B)
-    (rest : t B | semi_regular rest)
-    (H0 : Stack.top_color top_stack = Red -> green_first rest)
-    (H1 : Stack.regular top_stack) :
-    { d : t A | regular d } :=
-      match Stack.top_color top_stack with
-      | Green => top_stack ++ rest
-      | Yellow => top_stack ++ (do_regularize rest _)
-      | Red =>
-        if (S.dec_is_empty top_stack) then
-          match rest with
-          | ∅ => top_stack ++ rest
-          | _ => do_regularize (top_stack ++ rest) _
-          end
-        else
-          do_regularize (top_stack ++ rest) _
-      end.
-
-  Next Obligation.
-  Proof.
-    rewrite <- Heq_anonymous.
-    destruct top_stack.
-      firstorder ; apply semi_impl_noyellow ; auto.
-
-      intuition.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    rewrite <- Heq_anonymous; intuition.
-    exact (proj2_sig (do_regularize rest H)).
-  Qed.
-
-  Next Obligation.
-  Proof. rewrite <- Heq_anonymous; intuition. Qed.
-
-  Next Obligation.
-  Proof. rewrite <- Heq_anonymous; intuition. Qed.
-
-  Next Obligation.
-  Proof.
-    apply strongr_impl_r.
-    exact ( proj2_sig ( do_regularize (top_stack ++ rest) _) ).
-  Qed.
-
-  Next Obligation.
-  Proof. rewrite <- Heq_anonymous; intuition. Qed.
-
-  Next Obligation.
-  Proof.
-    apply strongr_impl_r.
-    exact ( proj2_sig ( do_regularize (top_stack ++ rest) _) ).
-  Qed.
-
-  Program Definition push {A : Set} (elt : A) (d : t A | regular d) :
-    { d : t A | regular d } :=
-    match d with
-    | ∅ =>
-      let empty_stack := ` (S.empty A) in
-      let singleton := S.push elt empty_stack _ in
-      singleton ++ ( ∅ (prod A A) )
-    | stack ++ stacks =>
-      let top_stack := Stack.push elt stack _ in
-      regularize top_stack stacks _ _
-    end.
-
-  Next Obligation.
-  Proof. right; exact (proj2_sig (Lvl.empty A)). Qed.
-
-  Next Obligation.
-  Proof.
-    rewrite Lvl.push_on_empty_yellowifies ; auto.
-    exact (proj2_sig (Lvl.empty A)).
-  Qed.
-
-  Next Obligation.
-  Proof.
-    intuition.
-    destruct stacks, stack ; firstorder; unfold regular in H.
-      destruct (Stack.top_color (S.Cons t0 stack)) eqn:Heq; solve [
-        (left ; intros ; discriminate) |
-        (right ; assumption)
-      ].
-
-      left ; intros; simpl in H ; simpl in H0 ; rewrite H0 in H ; intuition.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    simpl in H ; destruct (S.top_color stack) ; destruct stacks ; firstorder.
-  Qed.
-
-  Next Obligation.
-  Proof. (* draft *)
-    destruct stack.
-      destruct stacks ; firstorder.
+    destruct (prefix lvlSi), (suffix lvlSi); firstorder.
     simpl in H.
-    apply Lvl.red_after_yellow in H.
-    unfold regular in H0. unfold Stack.top_color in H0.  
-    rewrite H in H0.
-    intuition.
-    unfold strongly_regular in H2.
-    destruct stacks; simpl ; firstorder.
+    omega. (* fuck it *)
   Qed.
 
   Next Obligation.
-    Lemma regdeque_impl_regstack :
-      forall A B:Set, forall stack:S.t A B, forall deque: t B,
-        regular (stack ++ deque) -> S.regular stack.
-    Proof.
-      intros.
-      unfold regular in H ; destruct stack.
-        simpl in * |- *; destruct deque0 ; auto.
-        destruct (Stack.top_color (S.Cons t0 stack)) eqn:Color ; solve [
-          (inversion H; assumption) |
-          (destruct deque0 ; destruct stack ; firstorder)
-        ].
-    Qed.
   Proof.
-    apply S.push_preserves_regularity.
-    apply regdeque_impl_regstack with (deque := stacks).
-    assumption.
+    destruct (prefix lvli) ; simpl in Heq_anonymous ; firstorder.
   Qed.
 
-End Make.
+  Next Obligation.
+  Proof.
+    destruct (prefix lvli) ; simpl in Heq_anonymous ; firstorder.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    (* Here Program wants me to prove [Heq_buff1], which I introduced to prove
+     * the last obligation, since Program doesn't remember where buff1 comes
+     * from.
+     * I don't really know how to prove that. *)
+     admit.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    (* Despite [Heq_buff1], Coq/Program doesn't know where it comes from, … *)
+  Admitted.
+
+  Next Obligation.
+  Admitted.
+
+  Next Obligation.
+  Proof.
+    (* same thing with [buff2] *)
+    admit.
+  Qed.
+
+  Admit Obligations.
+  (* I give up *)
+
+  Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A)) :
+    (t A * t (A * A)) :=
+    let (bool, H) := 
+      (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) ≥ 2
+    in
+    match bool with
+    | true => two_buffer_case lvli lvlSi _
+    | false => (lvli, lvlSi) (* TODO *)
+    end.
+
+End Lvl.
+
+Module Stack.
+  Inductive t : Set -> Set -> Type :=
+    | Nil  : forall A, t A A
+    | Cons : forall A B, Lvl.t A -> t (A * A) B -> t A B.
+
+  Arguments Nil [A].
+  Arguments Cons [A] [B] _ _.
+
+  Definition is_nil {A B : Set} (stack : t A B) : Prop :=
+    match stack with
+    | Nil _ => True
+    | _ => False
+    end.
+
+  Fixpoint all_yellows {A B : Set} (s : t A B) is_last : Prop :=
+    match s with
+    | Nil _ => True
+    | Cons _ _ lvl (Nil _) => Lvl.color lvl is_last = Yellow
+    | Cons _ _ lvl rest => (Lvl.color lvl false = Yellow) /\ all_yellows rest is_last
+    end.
+
+  Definition well_formed {A B : Set} (stack : t A B) is_last :=
+    match stack with
+    | Nil _ => False
+    | Cons _ _ _top_level rest => all_yellows rest is_last
+    end.
+
+  Program Definition hd {A B : Set} (stack : t A B | ~ is_nil stack) :=
+    match stack with
+    | Nil _ => !
+    | Cons _ _ hd _ => hd
+    end.
+
+  Next Obligation.
+  Proof. contradict H. rewrite <- Heq_stack; simpl ; auto. Qed.
+
+  Theorem wf_impl_nnil :
+    forall A B, forall s : t A B, forall is_last,
+      well_formed s is_last -> ~ is_nil s.
+  Proof. induction s ; intros is_last H ; [ contradict H | auto ]. Qed.
+
+  Definition is_empty {A B : Set} (stack : t A B) : Prop :=
+    match stack with
+    | Cons _ _ lvl (Nil _) => Lvl.is_empty lvl
+    | _ => False
+    end.
+
+  Program Definition empty (A : Set) :
+    { s : t A (A * A) | well_formed s true /\ is_empty s } :=
+    Cons (Lvl.empty A) Nil.
+
+  Next Obligation.
+  Proof. compute ; tauto. Qed.
+
+  Theorem wf_false_impl_true :
+    forall A B, forall s : t A B, well_formed s false -> well_formed s true.
+  Proof.
+    Lemma all_yellows_false_impl_true :
+      forall A B, forall s : t A B, all_yellows s false -> all_yellows s true.
+    Proof.
+      intros ; induction s ; auto; simpl in * |- *.
+      dependent destruction s.
+      - unfold Lvl.color in *.
+        destruct (Buffer.dec_is_empty (Lvl.suffix t0)).
+        + contradict H; discriminate.
+        + assumption.
+      - intuition.
+    Qed.
+    intros ; destruct s.
+    - contradict H ; auto.
+    - simpl in *. apply all_yellows_false_impl_true ; assumption.
+  Qed.
+End Stack.
+
+Module S := Stack.
+
+Inductive deque (A : Set) : Type :=
+  | Nil : deque A
+  | Cons :
+    forall B : Set, forall s : S.t A B, S.well_formed s false -> deque B -> deque A.
+
+Arguments Nil [A].
+Arguments Cons [A B] _ _ _.
+
+Definition t := deque.
+
+Notation "∅" := Nil.
+Notation "x ++ y" := (Cons x _ y).
+
+Notation "[]" := (@S.Nil _) (at level 40).
+Notation "a ::: b" := (@S.Cons _ _ a b) (at level 55, right associativity).
+
+Program Definition color {A : Set} (d : t A) : color :=
+  match d with
+  | ∅ => Red
+  | top_stack ++ rest =>
+    match rest with
+    | ∅ => Lvl.color (S.hd top_stack) true
+    | _ => Lvl.color (S.hd top_stack) false
+    end
+  end.
+
+Next Obligation.
+Proof. destruct top_stack; auto. Qed.
+
+Next Obligation.
+Proof. destruct top_stack, rest ; firstorder. Qed.
+
+Fixpoint semi_regular {A : Set} (d : t A) : Prop :=
+  match d with
+  | ∅ => True
+  | _ ++ stacks =>
+    let green_before_red :=
+      match color d with
+      | Red => color stacks = Green
+      | Green => True
+      | Yellow => False
+      end
+    in
+    semi_regular stacks /\ green_before_red
+  end.
+
+Definition strongly_regular {A : Set} (d : t A) : Prop :=
+  match d with
+  | ∅ => True
+  | _ =>
+    match color d with
+    | Red => False
+    | _ => semi_regular d
+    end
+  end.
+
+Definition regular {A : Set} (d : t A) : Prop :=
+  match d with
+  | ∅ => True
+  | top_stack ++ stacks =>
+    match color d with
+    | Green => semi_regular d
+    | Yellow => strongly_regular stacks
+    | Red =>
+      match stacks with
+      | ∅ => S.is_empty top_stack
+      | _ => False
+      end
+    end
+  end.
+
+(*
+Lemma strongr_impl_r :
+  forall A, forall d : t A, strongly_regular d -> regular d.
+Proof.
+  intros.
+  destruct d ; auto.
+  destruct s ; firstorder ; unfold regular.
+  destruct (S.top_color (S.Cons t0 s)) eqn:Color.
+    firstorder (rewrite Color); trivial.
+    contradict H2.
+    unfold green_first in H ; rewrite Color in H ; contradict H.
+Qed.
+*)
+
+Program Definition empty (A : Set) : { d : t A | regular d } :=
+  let empty_stack := ` (S.empty A) in
+  empty_stack ++ ∅ .
+
+Next Obligation.
+Proof with tauto.
+  compute.
+  destruct (Buffer.dec_is_empty (Buffer.Zero A))...
+Qed.
+
+Program Definition regularize {A : Set} (d : t A)
+  (Hsr : semi_regular d) (Color : color d = Red) : t A :=
+  match d with
+  | ∅ => ∅
+  | (top_lvl ::: []) ++ (second_lvl ::: yellows) ++ rest
+  | (top_lvl ::: second_lvl ::: yellows) ++ rest =>
+    !
+  | _ => !
+  end.
+Admit Obligations.
+(* Error: Anomaly: Uncaught exception Type_errors.TypeError(_, _).
+ *        Please report. *)
