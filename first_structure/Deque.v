@@ -12,6 +12,12 @@ Require Buffer.
 Notation "⨞ x" := ((fun _ => _) ((fun i => i) x)) (at level 1).
 
 Module Lvl.
+  (* Y: Pourquoi ne pas rajouter un booléen is_last dans cette
+        structure? Je suis d'accord que c'est redondant et que 
+        cette information est donnée de façon externe par la
+        structure engloblante mais cela aurait l'intérêt de 
+        rendre ce type de donnée autonome du point de vue de
+        la détermination de la couleur... *)
   Record t (A : Set) : Set := makeLvl {
     prefix : Buffer.t A ;
     suffix : Buffer.t A
@@ -38,66 +44,129 @@ Module Lvl.
     destruct lvl ; destruct prefix0, suffix0 ; firstorder.
   Defined.
 
+  (* Y: Le texte de l'article suggérerait plutôt quelque chose comme
+     cela : 
+
+  Program Definition push {A : Set} (x : A) (is_last : bool)
+    (t : t A | color t is_last <> Red) :=
+    makeLvl (Buffer.push x (prefix t)) (suffix t).
+
+     Pourquoi doit-on écrire une opération de plus bas-niveau 
+     (au sens où elle s'attache au "buffer" et non au "level")?
+
+   Cela laisse à penser que l'abstraction de "couleur" n'est pas
+   la bonne...
+
+  *)
   Program Definition push {A : Set} (x : A)
     (t : t A | Buffer.color (prefix t) <> Red \/ Buffer.is_empty (prefix t)) :=
     makeLvl (Buffer.push x (prefix t)) (suffix t).
 
-  Definition empty (A : Set) := makeLvl (Buffer.Zero A) (Buffer.Zero A).
+  Definition empty (A : Set) := makeLvl (Buffer.Zero (A := A)) (Buffer.Zero (A := A)).
 
-  Notation "x ≥ y" := (nat_ge_lt_bool x y) (at level 70, right associativity).
+  Print nat_ge_lt_bool.
+
+  (* Tu avais fait une inversion ici... *)
+  Notation "x ≥ y" := (lt_ge_dec y x) (at level 70, right associativity).
+(*  Notation "x ≥ y" := (nat_ge_lt_bool x y) (at level 70, right associativity). *)
   (* Notation "x ≤ y" := (le_gt_dec x y) (at level 70, right associativity). *)
 
-  Program Definition two_buffer_case {A} (lvli : t A) (lvlSi : t (A * A))
-    (H : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) >= 2) :=
-    let pairSi : Buffer.t (A * A) * Buffer.t (A * A) :=
+  Require Import Omega.
+
+  Obligation Tactic := (program_simpl; 
+     try (
+        (simpl in * |- *; apply Buffer.nonempty_length; omega)
+     || (left; congruence)
+     )).
+
+  Program Definition two_buffer_case {A} 
+    (lvli : t A) 
+    (lvlSi : t (A * A))
+    (H : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) >= 2) 
+  :=
+    (* Y:
+       Hmm, si je comprends bien le code suivant, il s'agit ici de rééquilibrer
+       les éléments entre le préfixe de lvlSi et le suffixe de lvlSi de façon à 
+       ce qu'aucun des deux ne soit vide.
+
+       J'imagine que l'on suppose que lvlSi est le dernier niveau de
+       la structure si l'un des deux buffers est vide, sinon je ne
+       vois pas comment cette opération pourrait avoir un sens : elle
+       ne préserve pas la séquence d'éléments sous-jacente représentée
+       par la structure. (Cette hypothèse est confirmée par la ligne
+       13, p587 de l'article.)
+
+       Du coup, n'est-il pas nécessaire d'expliciter cet invariant? J'écrirais
+       bien quelque chose comme:
+
+       Hbis: (Buffer.length (prefix lvlSi) = 0 \/ Buffer.length (suffix lvlSi) = 0)
+             -> is_last lvlSi = true
+       (Si on suppose avoir rajouté le champ is_last dans la structure.)      
+
+       mais peut-être que ce n'est pas nécessaire à la preuve...
+    *)
+    let pairSi
+    : { b : Buffer.t (A * A) * Buffer.t (A * A) 
+      | Buffer.color (fst b) <> Red \/ Buffer.is_empty (fst b) }
+    :=
       match Buffer.dec_is_empty (prefix lvlSi), Buffer.dec_is_empty (suffix lvlSi) with
-      | left _, left _ => !
+      | left _, left _ => 
+          (* By H. *)
+          !
       | left _, right _ =>
-        let (elt, buff) := Buffer.pop (suffix lvlSi) in
-        pair (Buffer.One (A * A) elt) buff
+          (* We have at least two elements in the suffix: 
+             we push the first of theses elements in the prefix. *)
+          let (p, Hp) := Buffer.pop (suffix lvlSi) in
+          let '(elt, buff) := p in
+          pair (Buffer.One elt) buff
       | right _, left _ =>
-        let (elt, buff) := Buffer.eject (prefix lvlSi) in
-        pair buff (Buffer.One (A * A) elt)
-      | _, _ => (prefix lvlSi, suffix lvlSi)
+          (* Symmetric case. *)
+          let (p, Hp) := Buffer.eject (prefix lvlSi) in
+          let '(elt, buff) := p in
+          pair buff (Buffer.One elt)
+      | _, _ => 
+          (* None of the two buffers is empty. *)
+          (prefix lvlSi, suffix lvlSi)
       end
     in
-    let (pSi, sSi) := pairSi in
+    let (pSi, sSi) := proj1_sig pairSi in
     let pairP : Buffer.t A * Buffer.t (A * A) :=
-      match Buffer.length (prefix lvli) ≥ 4 with
-      | true =>
-        let (elt1, buff1) := Buffer.eject (prefix lvli) in
-        let Heq_buff1 : (elt1, buff1) = Buffer.eject (prefix lvli) := eq_refl in
-        let (elt2, buff2) := Buffer.eject buff1 in
-        let Heq_buffe2 : (elt2, buff2) = Buffer.eject buff1 := eq_refl in
+      match Buffer.length (prefix lvli) ≥ 4 with 
+          | left _ =>
+        let (p, Hp) := Buffer.eject (prefix lvli) in
+        let '(elt1, buff1) := p in
+        let (p, Hp) := Buffer.eject buff1 in
+        let '(elt2, buff2) := p in
         (buff2, Buffer.push (elt2, elt1) pSi)
-      | false =>
+      | right _ =>
         match 1 ≥ Buffer.length (prefix lvli) with
-        | true =>
-          let (pair, pSi) := Buffer.pop pSi in
-          let (elt1, elt2) := pair in
+        | left _ =>
+          let '(p, pSi) := Buffer.pop pSi in
+          let '(elt1, elt2) := p in
           let buff := Buffer.inject elt1 (prefix lvli) in
           (Buffer.inject elt2 buff, pSi)
-        | false =>
+        | right _ =>
           (prefix lvli, pSi)
         end
       end
     in
     let pairS : Buffer.t A * Buffer.t (A * A) :=
-      let (too_many, H_s4) := (Buffer.length (suffix lvli)) ≥ 4 in
-      let (too_few, H_s1) := 1 ≥ (Buffer.length (suffix lvli)) in
+(*      let '(too_many, H_s4) := (Buffer.length (suffix lvli)) ≥ 4 in
+      let '(too_few, H_s1) := 1 ≥ (Buffer.length (suffix lvli)) in *)
       match (Buffer.length (suffix lvli)) ≥ 4 with
-      | true =>
-        let (elt1, buff) := Buffer.pop (suffix lvli) in
-        let (elt2, buff) := Buffer.pop buff in
-        (buff, Buffer.inject (elt1, elt2) sSi)
-      | false =>
+      | left H =>
+          let p := Buffer.pop (suffix lvli) in
+          let '(elt1, buff) :=  p in
+          let '(elt2, buff) := Buffer.pop buff in
+         (buff, Buffer.inject (elt1, elt2) sSi)
+      | right _ =>
         match 1 ≥ (Buffer.length (suffix lvli)) with
-        | true =>
-          let (pair, pSi) := Buffer.eject sSi in
-          let (elt1, elt2) := pair in
+        | left _ =>
+          let '(p, pSi) := Buffer.eject sSi in
+          let '(elt1, elt2) := p in
           let buff := Buffer.push elt2 (suffix lvli) in
           (Buffer.push elt1 buff, sSi)
-        | false =>
+        | right _ =>
           (suffix lvli, sSi)
         end
       end
@@ -107,48 +176,25 @@ Module Lvl.
     (makeLvl pi si, makeLvl pSi sSi).
 
   Require Import Omega.
+
   Next Obligation.
   Proof.
-    destruct (prefix lvlSi), (suffix lvlSi); firstorder.
-    simpl in H.
-    omega. (* fuck it *)
+    assert (Buffer.length (prefix lvlSi) = 0) by (apply Buffer.empty_length; auto).
+    assert (Buffer.length (suffix lvlSi) = 0) by (apply Buffer.empty_length; auto).
+    omega.
   Qed.
 
-  Next Obligation.
-  Proof.
-    destruct (prefix lvli) ; simpl in Heq_anonymous ; firstorder.
-  Qed.
+  Next Obligation. 
+  Proof. 
+    simpl in * |- *. 
+    generalize (Buffer.length_color t0); intro.
+    assert (Hs: Buffer.length (suffix lvlSi) = 0) by (apply Buffer.empty_length; auto).
+    rewrite Hs in H. simpl in H.
+    assert (Buffer.length (prefix lvlSi) <= 5) by (apply Buffer.bounded_length).    
+    destruct t0; simpl in * |- *; (try (left; congruence || omega)).
+  Qed.    
 
-  Next Obligation.
-  Proof.
-    destruct (prefix lvli) ; simpl in Heq_anonymous ; firstorder.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    (* Here Program wants me to prove [Heq_buff1], which I introduced to prove
-     * the last obligation, since Program doesn't remember where buff1 comes
-     * from.
-     * I don't really know how to prove that. *)
-     admit.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    (* Despite [Heq_buff1], Coq/Program doesn't know where it comes from, … *)
-  Admitted.
-
-  Next Obligation.
-  Admitted.
-
-  Next Obligation.
-  Proof.
-    (* same thing with [buff2] *)
-    admit.
-  Qed.
-
-  Admit Obligations.
-  (* I give up *)
+  (* FIXME: To be continued. *)
 
   Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A)) :
     (t A * t (A * A)) :=
@@ -172,27 +218,27 @@ Module Stack.
 
   Definition is_nil {A B : Set} (stack : t A B) : Prop :=
     match stack with
-    | Nil _ => True
+    | Nil => True
     | _ => False
     end.
 
   Fixpoint all_yellows {A B : Set} (s : t A B) is_last : Prop :=
     match s with
-    | Nil _ => True
-    | Cons _ _ lvl (Nil _) => Lvl.color lvl is_last = Yellow
-    | Cons _ _ lvl rest => (Lvl.color lvl false = Yellow) /\ all_yellows rest is_last
+    | Nil => True
+    | Cons lvl Nil => Lvl.color lvl is_last = Yellow
+    | Cons lvl rest => (Lvl.color lvl false = Yellow) /\ all_yellows rest is_last
     end.
 
   Definition well_formed {A B : Set} (stack : t A B) is_last :=
     match stack with
-    | Nil _ => False
-    | Cons _ _ _top_level rest => all_yellows rest is_last
+    | Nil => False
+    | Cons _top_level rest => all_yellows rest is_last
     end.
 
   Program Definition hd {A B : Set} (stack : t A B | ~ is_nil stack) :=
     match stack with
-    | Nil _ => !
-    | Cons _ _ hd _ => hd
+    | Nil => !
+    | Cons hd _ => hd
     end.
 
   Next Obligation.
@@ -205,7 +251,7 @@ Module Stack.
 
   Definition is_empty {A B : Set} (stack : t A B) : Prop :=
     match stack with
-    | Cons _ _ lvl (Nil _) => Lvl.is_empty lvl
+    | Cons lvl Nil => Lvl.is_empty lvl
     | _ => False
     end.
 
@@ -330,7 +376,7 @@ Program Definition empty (A : Set) : { d : t A | regular d } :=
 Next Obligation.
 Proof with tauto.
   compute.
-  destruct (Buffer.dec_is_empty (Buffer.Zero A))...
+  destruct (Buffer.dec_is_empty (Buffer.Zero (A:=A)))...
 Qed.
 
 Program Definition regularize {A : Set} (d : t A)
