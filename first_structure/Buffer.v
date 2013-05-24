@@ -9,6 +9,13 @@ Inductive t (A : Set) :=
   | Four  : A -> A -> A -> A -> t A
   | Five  : A -> A -> A -> A -> A -> t A.
 
+Implicit Arguments Zero [A].
+Implicit Arguments One [A].
+Implicit Arguments Two [A].
+Implicit Arguments Three [A].
+Implicit Arguments Four [A].
+Implicit Arguments Five [A].
+
 Definition is_empty {A : Set} (buff : t A) : Prop :=
   match buff with
   | Zero => True
@@ -42,11 +49,11 @@ Definition color {A : Set} (buff : t A) : color :=
 Program Definition push {A : Set} (elt : A) 
   (buff : t A | color buff <> Red \/ is_empty buff) : t A :=
   match buff with
-  | Zero => One A elt
-  | One a => Two A elt a
-  | Two a b => Three A elt a b
-  | Three a b c => Four A elt a b c
-  | Four a b c d => Five A elt a b c d
+  | Zero => One elt
+  | One a => Two elt a
+  | Two a b => Three elt a b
+  | Three a b c => Four elt a b c
+  | Four a b c d => Five elt a b c d
   | Five _ _ _ _ _ => !
   end.
 
@@ -56,11 +63,11 @@ Proof.  firstorder. Qed.
 Program Definition inject {A : Set} (elt : A) 
   (buff : t A | color buff <> Red \/ is_empty buff) : t A :=
   match buff with
-  | Zero => One A elt
-  | One a => Two A a elt
-  | Two a b => Three A a b elt
-  | Three a b c => Four A a b c elt
-  | Four a b c d => Five A a b c d elt
+  | Zero => One elt
+  | One a => Two a elt
+  | Two a b => Three a b elt
+  | Three a b c => Four a b c elt
+  | Four a b c d => Five a b c d elt
   | Five _ _ _ _ _ => !
   end.
 
@@ -70,11 +77,11 @@ Proof. firstorder. Qed.
 Program Definition pop {A : Set} (buff : t A | ~ is_empty buff) : A * t A :=
   match buff with
   | Zero => !
-  | One a => (a, Zero A)
-  | Two a b => (a, One A b)
-  | Three a b c => (a, Two A b c)
-  | Four a b c d => (a, Three A b c d)
-  | Five a b c d e => (a, Four A b c d e)
+  | One a => (a, Zero)
+  | Two a b => (a, One b)
+  | Three a b c => (a, Two b c)
+  | Four a b c d => (a, Three b c d)
+  | Five a b c d e => (a, Four b c d e)
   end.
 
 Next Obligation.
@@ -83,11 +90,11 @@ Proof. firstorder. Qed.
 Program Definition eject {A : Set} (buff : t A | ~ is_empty buff) : A * t A :=
   match buff with
   | Zero => !
-  | One a => (a, Zero A)
-  | Two a b => (b, One A a)
-  | Three a b c => (c, Two A a b)
-  | Four a b c d => (d, Three A a b c)
-  | Five a b c d e => (e, Four A a b c d)
+  | One a => (a, Zero)
+  | Two a b => (b, One a)
+  | Three a b c => (c, Two a b)
+  | Four a b c d => (d, Three a b c)
+  | Five a b c d e => (e, Four a b c d)
   end.
 
 Next Obligation.
