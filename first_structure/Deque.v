@@ -100,6 +100,8 @@ Module Lvl.
   Program Definition two_buffer_case {A}
     (lvli : t A)
     (lvlSi : t (A * A))
+    (Colori : color lvli = Red)
+    (ColorSi : color lvlSi <> Red)
     (H : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) >= 2)
   :=
     (* Y:
@@ -128,10 +130,7 @@ Module Lvl.
     *)
     let pairSi
     : { b : Buffer.t (A * A) * Buffer.t (A * A) 
-      | Buffer.color (fst b) <> Red \/ Buffer.is_empty (fst b) }
-      (* T: Ça me semble faut. Ce qu'on veut faire ici, c'est plus quelque chose
-       *    comme :
-       *        ~ Buffer.is_empty (fst b) /\ ~ Buffer.is_empty (snd b) *)
+      | Buffer.color (fst b) <> Red /\ Buffer.color (snd b) <> Red }
     :=
       match Buffer.dec_is_empty (prefix lvlSi), Buffer.dec_is_empty (suffix lvlSi) with
       | left _, left _ => 
@@ -148,7 +147,7 @@ Module Lvl.
           let (p, Hp) := Buffer.eject (prefix lvlSi) in
           let '(elt, buff) := p in
           pair buff (Buffer.One elt)
-      | _, _ => 
+      | right _, right _ => 
           (* None of the two buffers is empty. *)
           (prefix lvlSi, suffix lvlSi)
       end
@@ -156,7 +155,7 @@ Module Lvl.
     let (pSi, sSi) := proj1_sig pairSi in
     let pairP : Buffer.t A * Buffer.t (A * A) :=
       match Buffer.length (prefix lvli) ≥ 4 with 
-          | left _ =>
+      | left _ =>
         let (p, Hp) := Buffer.eject (prefix lvli) in
         let '(elt1, buff1) := p in
         let (p, Hp) := Buffer.eject buff1 in
@@ -208,15 +207,36 @@ Module Lvl.
 
   Next Obligation. 
   Proof. 
-    simpl in * |- *. 
-    generalize (Buffer.length_color t0); intro.
-    assert (Hs: Buffer.length (suffix lvlSi) = 0) by (apply Buffer.empty_length; auto).
-    rewrite Hs in H. simpl in H.
-    assert (Buffer.length (prefix lvlSi) <= 5) by (apply Buffer.bounded_length).    
-    destruct t0; simpl in * |- *; (try (left; congruence || omega)).
+    simpl in * |- * ; split.
+    + discriminate.
+    + assert (Hs: Buffer.length (prefix lvlSi) = 0) by (apply Buffer.empty_length; auto).
+      rewrite Hs in H; simpl in H.
+      assert (Buffer.length (suffix lvlSi) <= 5) by (apply Buffer.bounded_length).    
+      destruct t0 ; simpl in * |- *; firstorder; discriminate.
   Qed.    
 
-  (* FIXME: To be continued. *)
+  Next Obligation.
+  Proof.
+    simpl in * |- * ; split.
+    + assert (Hs: Buffer.length (suffix lvlSi) = 0) by (apply Buffer.empty_length; auto).
+      rewrite Hs in H; simpl in H.
+      assert (Buffer.length (prefix lvlSi) <= 5) by (apply Buffer.bounded_length).    
+      destruct t0 ; simpl in * |- *; firstorder; discriminate.
+    + discriminate.
+  Qed.    
+
+  Next Obligation.
+  Proof. (* TODO *)
+  Admitted.
+
+  Next Obligation.
+  Proof.
+    simpl in * |- *.
+    (* T: Le problème que j'avais précédemment "Coq ne sait pas d'où vient pSi"
+     *    persiste. *)
+  Admitted.
+
+  Admit Obligations.
 
   Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A)) :
     (t A * t (A * A)) :=
