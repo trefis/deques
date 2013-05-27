@@ -13,23 +13,26 @@ Notation "⨞ x" := ((fun _ => _) ((fun i => i) x)) (at level 1).
 
 Module Lvl.
   (* Y: Pourquoi ne pas rajouter un booléen is_last dans cette
-        structure? Je suis d'accord que c'est redondant et que 
+        structure? Je suis d'accord que c'est redondant et que
         cette information est donnée de façon externe par la
-        structure engloblante mais cela aurait l'intérêt de 
+        structure engloblante mais cela aurait l'intérêt de
         rendre ce type de donnée autonome du point de vue de
-        la détermination de la couleur... *)
+        la détermination de la couleur...
+     T: Faisons ça. *)
   Record t (A : Set) : Set := makeLvl {
-    prefix : Buffer.t A ;
-    suffix : Buffer.t A
+    prefix  : Buffer.t A ;
+    suffix  : Buffer.t A ;
+    is_last : bool
   }.
 
-  Arguments makeLvl [A] _ _.
-  Arguments prefix [A] _. 
-  Arguments suffix [A] _. 
+  Arguments makeLvl [A] _ _ _.
+  Arguments prefix [A] _.
+  Arguments suffix [A] _.
+  Arguments is_last [A] _.
 
-  Definition color {A : Set} (lvl : t A) (is_last : bool) :=
-    if Buffer.dec_is_empty lvl.(suffix) then 
-      if is_last then
+  Definition color {A : Set} (lvl : t A) :=
+    if Buffer.dec_is_empty lvl.(suffix) then
+      if is_last lvl then
         Buffer.color lvl.(prefix)
       else
         Red
@@ -45,44 +48,59 @@ Module Lvl.
   Defined.
 
   (* Y: Le texte de l'article suggérerait plutôt quelque chose comme
-     cela : 
+     cela :
 
   Program Definition push {A : Set} (x : A) (is_last : bool)
     (t : t A | color t is_last <> Red) :=
     makeLvl (Buffer.push x (prefix t)) (suffix t).
 
-     Pourquoi doit-on écrire une opération de plus bas-niveau 
+     Pourquoi doit-on écrire une opération de plus bas-niveau
      (au sens où elle s'attache au "buffer" et non au "level")?
 
    Cela laisse à penser que l'abstraction de "couleur" n'est pas
    la bonne...
 
+    T: En effet, rétrospectivement l'intérêt de cette fonction de push est bien
+       limité et je ne sais plus pourquoi je l'avais fait comme ça.
+       Peut-être parce que je n'avais pas envie de devoir passer [is_last] qui
+       est nécessaire au calcul de la couleur du niveau.
   *)
   Program Definition push {A : Set} (x : A)
-    (t : t A | Buffer.color (prefix t) <> Red \/ Buffer.is_empty (prefix t)) :=
+    (t : t A | color t <> Red \/ is_empty t) :=
     makeLvl (Buffer.push x (prefix t)) (suffix t).
+
+  Next Obligation.
+  Proof.
+    destruct H.
+    - left; destruct t0; destruct prefix0; solve [
+        discriminate |
+        (contradict H; compute; destruct (Buffer.dec_is_empty suffix0),is_last0; reflexivity)
+      ].
+    - right; destruct t0; destruct prefix0; compute; compute in H; firstorder.
+  Qed.
 
   Definition empty (A : Set) := makeLvl (Buffer.Zero (A := A)) (Buffer.Zero (A := A)).
 
-  Print nat_ge_lt_bool.
-
-  (* Tu avais fait une inversion ici... *)
+  (* Y: Tu avais fait une inversion ici...
+   * T: Je ne crois pas non ?
+   *        "x ≥ y" : forall x y, { b : bool | if b then x >= y else x < y }
+   *    C'est bien ce qu'on veut non ? *)
   Notation "x ≥ y" := (lt_ge_dec y x) (at level 70, right associativity).
 (*  Notation "x ≥ y" := (nat_ge_lt_bool x y) (at level 70, right associativity). *)
   (* Notation "x ≤ y" := (le_gt_dec x y) (at level 70, right associativity). *)
 
   Require Import Omega.
 
-  Obligation Tactic := (program_simpl; 
+  Obligation Tactic := (program_simpl;
      try (
         (simpl in * |- *; apply Buffer.nonempty_length; omega)
      || (left; congruence)
      )).
 
-  Program Definition two_buffer_case {A} 
-    (lvli : t A) 
+  Program Definition two_buffer_case {A}
+    (lvli : t A)
     (lvlSi : t (A * A))
-    (H : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) >= 2) 
+    (H : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) >= 2)
   :=
     (* Y:
        Hmm, si je comprends bien le code suivant, il s'agit ici de rééquilibrer
@@ -104,10 +122,16 @@ Module Lvl.
        (Si on suppose avoir rajouté le champ is_last dans la structure.)      
 
        mais peut-être que ce n'est pas nécessaire à la preuve...
+
+      T: C'est ça. Je vais essayer sans cette hypothèse et si nécessaire je
+         rajouterai.
     *)
     let pairSi
     : { b : Buffer.t (A * A) * Buffer.t (A * A) 
       | Buffer.color (fst b) <> Red \/ Buffer.is_empty (fst b) }
+      (* T: Ça me semble faut. Ce qu'on veut faire ici, c'est plus quelque chose
+       *    comme :
+       *        ~ Buffer.is_empty (fst b) /\ ~ Buffer.is_empty (snd b) *)
     :=
       match Buffer.dec_is_empty (prefix lvlSi), Buffer.dec_is_empty (suffix lvlSi) with
       | left _, left _ => 
@@ -174,8 +198,6 @@ Module Lvl.
     let (pi, pSi) := pairP in
     let (si, sSi) := pairS in
     (makeLvl pi si, makeLvl pSi sSi).
-
-  Require Import Omega.
 
   Next Obligation.
   Proof.
