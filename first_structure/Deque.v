@@ -226,8 +226,12 @@ Module Lvl.
   Qed.    
 
   Next Obligation.
-  Proof. (* TODO *)
-  Admitted.
+  Proof. (* A bit crude, I'll admit. *)
+    destruct lvlSi;
+    compute in ColorSi; destruct (Buffer.dec_is_empty suffix0), is_last0;
+    destruct prefix0, suffix0; compute ; compute in ColorSi; firstorder;
+    discriminate H0.
+  Qed.
 
   Next Obligation.
   Proof.
