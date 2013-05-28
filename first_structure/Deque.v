@@ -228,48 +228,74 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-  Admitted.
+    destruct lvlSi;
+    compute in ColorSi; destruct (Buffer.dec_is_empty suffix0), is_last0;
+    destruct prefix0, suffix0; compute ; compute in ColorSi; firstorder;
+    discriminate H0.
+  Qed.
 
   Next Obligation.
   Proof.
-  Admitted.
+    apply Buffer.nonempty_length.
+    omega.
+  Qed.
   
   Next Obligation.
   Proof.
-    Admitted.
+    simpl in * |- *.
+    apply Buffer.nonempty_length.
+    omega.
+  Qed.
 
   Next Obligation.
   Proof.
-    Admitted.
+    destruct pSi; firstorder.
+  Qed.
 
   Next Obligation.
-    Proof.
-      Admitted.
+  Proof.
+    destruct lvli; destruct prefix0; compute; firstorder;
+    left ; intro Color_mismatch ; contradict Color_mismatch ; discriminate.
+  Qed.
 
   Next Obligation.
-    Proof.
-      Admitted.
+  Proof.
+    left.
+    assert (Hp: Buffer.length (prefix lvli) = 0) by omega.
+    rewrite Hp in Hbuff.
+    destruct buff ; simpl in * ; firstorder; discriminate.
+  Qed.
 
   Next Obligation.
-    Proof.
-      Admitted.
+  Proof.
+    apply Buffer.nonempty_length.
+    omega.
+  Qed.
 
   Next Obligation.
-    Proof.
-      Admitted.
+  Proof.
+    simpl in Hp.
+    apply Buffer.nonempty_length.
+    omega.
+  Qed.
 
   Next Obligation.
-    Proof.
-      Admitted.
-
-
-  Next Obligation.
-    Proof.
-      Admitted.
+  Proof.
+    destruct sSi ; firstorder.
+  Qed.
 
   Next Obligation.
-    Proof.
-      Admitted.
+  Proof.
+    destruct lvli; destruct suffix0; compute; firstorder;
+    left ; intro Color_mismatch ; contradict Color_mismatch ; discriminate.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    left ; assert (Hs: Buffer.length (suffix lvli) = 0) by omega.
+    rewrite Hs in Hbuff.
+    destruct buff ; simpl in * ; firstorder. discriminate.
+  Qed.
 
   Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A)) :
     (t A * t (A * A)) :=
