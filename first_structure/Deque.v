@@ -12,13 +12,6 @@ Require Buffer.
 Notation "⨞ x" := ((fun _ => _) ((fun i => i) x)) (at level 1).
 
 Module Lvl.
-  (* Y: Pourquoi ne pas rajouter un booléen is_last dans cette
-        structure? Je suis d'accord que c'est redondant et que
-        cette information est donnée de façon externe par la
-        structure engloblante mais cela aurait l'intérêt de
-        rendre ce type de donnée autonome du point de vue de
-        la détermination de la couleur...
-     T: Faisons ça. *)
   Record t (A : Set) : Set := makeLvl {
     prefix  : Buffer.t A ;
     suffix  : Buffer.t A ;
@@ -58,7 +51,8 @@ Module Lvl.
      (au sens où elle s'attache au "buffer" et non au "level")?
 
    Cela laisse à penser que l'abstraction de "couleur" n'est pas
-   la bonne...
+   la bonne... Peut-être qu'il serait intéressant d'introduire
+   un rouge+ et un rouge-.
 
     T: En effet, rétrospectivement l'intérêt de cette fonction de push est bien
        limité et je ne sais plus pourquoi je l'avais fait comme ça.
@@ -81,21 +75,16 @@ Module Lvl.
 
   Definition empty (A : Set) := makeLvl (Buffer.Zero (A := A)) (Buffer.Zero (A := A)).
 
-  (* Y: Tu avais fait une inversion ici...
-   * T: Je ne crois pas non ?
-   *        "x ≥ y" : forall x y, { b : bool | if b then x >= y else x < y }
-   *    C'est bien ce qu'on veut non ? *)
-  Notation "x ≥ y" := (lt_ge_dec y x) (at level 70, right associativity).
-(*  Notation "x ≥ y" := (nat_ge_lt_bool x y) (at level 70, right associativity). *)
-  (* Notation "x ≤ y" := (le_gt_dec x y) (at level 70, right associativity). *)
+   Notation "x ≥ y" := (lt_ge_dec y x) (at level 70, right associativity).
 
   Require Import Omega.
 
-  Obligation Tactic := (program_simpl;
+(*  Obligation Tactic := (program_simpl;
      try (
         (simpl in * |- *; apply Buffer.nonempty_length; omega)
      || (left; congruence)
      )).
+*)
 
   Program Definition two_buffer_case {A}
     (lvli : t A)
@@ -129,8 +118,13 @@ Module Lvl.
          rajouterai.
     *)
     let pairSi
+    : { p : Buffer.t (A * A) | Buffer.color p <> Red }
+      * 
+      { p : Buffer.t (A * A) | Buffer.color p <> Red }
+(*
     : { b : Buffer.t (A * A) * Buffer.t (A * A) 
       | Buffer.color (fst b) <> Red /\ Buffer.color (snd b) <> Red }
+*)
     :=
       match Buffer.dec_is_empty (prefix lvlSi), Buffer.dec_is_empty (suffix lvlSi) with
       | left _, left _ => 
@@ -152,7 +146,7 @@ Module Lvl.
           (prefix lvlSi, suffix lvlSi)
       end
     in
-    let (pSi, sSi) := proj1_sig pairSi in
+    let (pSi, sSi) := pairSi in
     let pairP : Buffer.t A * Buffer.t (A * A) :=
       match Buffer.length (prefix lvli) ≥ 4 with 
       | left _ =>
@@ -166,7 +160,7 @@ Module Lvl.
         | left _ =>
           let '(p, pSi) := Buffer.pop pSi in
           let '(elt1, elt2) := p in
-          let buff := Buffer.inject elt1 (prefix lvli) in
+          let (buff, Hbuff) := Buffer.inject elt1 (prefix lvli) in
           (Buffer.inject elt2 buff, pSi)
         | right _ =>
           (prefix lvli, pSi)
@@ -178,16 +172,17 @@ Module Lvl.
       let '(too_few, H_s1) := 1 ≥ (Buffer.length (suffix lvli)) in *)
       match (Buffer.length (suffix lvli)) ≥ 4 with
       | left H =>
-          let p := Buffer.pop (suffix lvli) in
+          let (p, Hp) := Buffer.pop (suffix lvli) in
           let '(elt1, buff) :=  p in
-          let '(elt2, buff) := Buffer.pop buff in
+          let (p, H) := Buffer.pop buff in
+          let '(elt2, buff) := p in
          (buff, Buffer.inject (elt1, elt2) sSi)
       | right _ =>
         match 1 ≥ (Buffer.length (suffix lvli)) with
         | left _ =>
           let '(p, pSi) := Buffer.eject sSi in
           let '(elt1, elt2) := p in
-          let buff := Buffer.push elt2 (suffix lvli) in
+          let (buff, Hbuff) := Buffer.push elt2 (suffix lvli) in
           (Buffer.push elt1 buff, sSi)
         | right _ =>
           (suffix lvli, sSi)
@@ -207,8 +202,7 @@ Module Lvl.
 
   Next Obligation. 
   Proof. 
-    simpl in * |- * ; split.
-    + discriminate.
+    simpl in * |- * .
     + assert (Hs: Buffer.length (prefix lvlSi) = 0) by (apply Buffer.empty_length; auto).
       rewrite Hs in H; simpl in H.
       assert (Buffer.length (suffix lvlSi) <= 5) by (apply Buffer.bounded_length).    
@@ -217,12 +211,11 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-    simpl in * |- * ; split.
+    simpl in * |- *. 
     + assert (Hs: Buffer.length (suffix lvlSi) = 0) by (apply Buffer.empty_length; auto).
       rewrite Hs in H; simpl in H.
       assert (Buffer.length (prefix lvlSi) <= 5) by (apply Buffer.bounded_length).    
       destruct t0 ; simpl in * |- *; firstorder; discriminate.
-    + discriminate.
   Qed.    
 
   Next Obligation.
@@ -235,12 +228,48 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-    simpl in * |- *.
-    (* T: Le problème que j'avais précédemment "Coq ne sait pas d'où vient pSi"
-     *    persiste. *)
   Admitted.
 
-  Admit Obligations.
+  Next Obligation.
+  Proof.
+  Admitted.
+  
+  Next Obligation.
+  Proof.
+    Admitted.
+
+  Next Obligation.
+  Proof.
+    Admitted.
+
+  Next Obligation.
+    Proof.
+      Admitted.
+
+  Next Obligation.
+    Proof.
+      Admitted.
+
+  Next Obligation.
+    Proof.
+      Admitted.
+
+  Next Obligation.
+    Proof.
+      Admitted.
+
+  Next Obligation.
+    Proof.
+      Admitted.
+
+
+  Next Obligation.
+    Proof.
+      Admitted.
+
+  Next Obligation.
+    Proof.
+      Admitted.
 
   Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A)) :
     (t A * t (A * A)) :=
