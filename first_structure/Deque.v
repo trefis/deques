@@ -29,6 +29,11 @@ Module Lvl.
         Buffer.color lvl.(prefix)
       else
         Red
+    else if Buffer.dec_is_empty (prefix lvl) then
+      if is_last lvl then
+        Buffer.color (suffix lvl)
+      else
+        Red
     else
       min_color (Buffer.color lvl.(prefix)) (Buffer.color lvl.(suffix)).
 
@@ -61,30 +66,37 @@ Module Lvl.
   *)
   Program Definition push {A : Set} (x : A)
     (t : t A | color t <> Red \/ is_empty t) :=
-    makeLvl (Buffer.push x (prefix t)) (suffix t).
+    if Buffer.dec_is_empty (prefix t) then
+      makeLvl (Buffer.push x (suffix t)) Buffer.Zero
+    else
+      makeLvl (Buffer.push x (prefix t)) (suffix t).
 
   Next Obligation.
   Proof.
-    destruct H.
-    - left; destruct t0; destruct prefix0; solve [
-        discriminate |
-        (contradict H; compute; destruct (Buffer.dec_is_empty suffix0),is_last0; reflexivity)
-      ].
-    - right; destruct t0; destruct prefix0; compute; compute in H; firstorder.
+    destruct t0 ; compute in H0;
+    destruct (Buffer.dec_is_empty prefix0), (Buffer.dec_is_empty suffix0);
+    destruct prefix0, suffix0, is_last0 ; firstorder.
   Qed.
 
-  Definition empty (A : Set) := makeLvl (Buffer.Zero (A := A)) (Buffer.Zero (A := A)).
+  Next Obligation.
+  Proof.
+    destruct t0 ; compute in H0 |- *;
+    destruct (Buffer.dec_is_empty prefix0), (Buffer.dec_is_empty suffix0);
+    destruct prefix0, suffix0, is_last0 ; firstorder;
+    left ; intro Color_mismatch ; discriminate Color_mismatch.
+  Qed.
 
-   Notation "x ≥ y" := (lt_ge_dec y x) (at level 70, right associativity).
+  Definition empty (A : Set) := makeLvl (A := A) Buffer.Zero Buffer.Zero.
+
+  Notation "x ≥ y" := (lt_ge_dec y x) (at level 70, right associativity).
 
   Require Import Omega.
 
-(*  Obligation Tactic := (program_simpl;
+  Obligation Tactic := (program_simpl;
      try (
         (simpl in * |- *; apply Buffer.nonempty_length; omega)
      || (left; congruence)
      )).
-*)
 
   Program Definition two_buffer_case {A}
     (lvli : t A)
@@ -203,54 +215,39 @@ Module Lvl.
   Next Obligation. 
   Proof. 
     simpl in * |- * .
-    + assert (Hs: Buffer.length (prefix lvlSi) = 0) by (apply Buffer.empty_length; auto).
-      rewrite Hs in H; simpl in H.
-      assert (Buffer.length (suffix lvlSi) <= 5) by (apply Buffer.bounded_length).    
-      destruct t0 ; simpl in * |- *; firstorder; discriminate.
+    assert (Hs: Buffer.length (prefix lvlSi) = 0) by (apply Buffer.empty_length; auto).
+    rewrite Hs in H; simpl in H.
+    assert (Buffer.length (suffix lvlSi) <= 5) by (apply Buffer.bounded_length).    
+    destruct t0 ; simpl in * |- *; firstorder; discriminate.
   Qed.    
 
   Next Obligation.
   Proof.
     simpl in * |- *. 
-    + assert (Hs: Buffer.length (suffix lvlSi) = 0) by (apply Buffer.empty_length; auto).
-      rewrite Hs in H; simpl in H.
-      assert (Buffer.length (prefix lvlSi) <= 5) by (apply Buffer.bounded_length).    
-      destruct t0 ; simpl in * |- *; firstorder; discriminate.
+    assert (Hs: Buffer.length (suffix lvlSi) = 0) by (apply Buffer.empty_length; auto).
+    rewrite Hs in H; simpl in H.
+    assert (Buffer.length (prefix lvlSi) <= 5) by (apply Buffer.bounded_length).    
+    destruct t0 ; simpl in * |- *; firstorder; discriminate.
   Qed.    
 
   Next Obligation.
   Proof. (* A bit crude, I'll admit. *)
-    destruct lvlSi;
-    compute in ColorSi; destruct (Buffer.dec_is_empty suffix0), is_last0;
-    destruct prefix0, suffix0; compute ; compute in ColorSi; firstorder;
+    destruct lvlSi; compute in ColorSi; compute ;
+    destruct (Buffer.dec_is_empty prefix0), (Buffer.dec_is_empty suffix0);
+    destruct prefix0, suffix0, is_last0; firstorder;
     discriminate H0.
   Qed.
 
   Next Obligation.
   Proof.
-    destruct lvlSi;
-    compute in ColorSi; destruct (Buffer.dec_is_empty suffix0), is_last0;
-    destruct prefix0, suffix0; compute ; compute in ColorSi; firstorder;
+    destruct lvlSi; compute in ColorSi; compute ;
+    destruct (Buffer.dec_is_empty prefix0), (Buffer.dec_is_empty suffix0);
+    destruct prefix0, suffix0, is_last0; firstorder;
     discriminate H0.
   Qed.
 
   Next Obligation.
-  Proof.
-    apply Buffer.nonempty_length.
-    omega.
-  Qed.
-  
-  Next Obligation.
-  Proof.
-    simpl in * |- *.
-    apply Buffer.nonempty_length.
-    omega.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    destruct pSi; firstorder.
-  Qed.
+  Proof. destruct pSi ; firstorder. Qed.
 
   Next Obligation.
   Proof.
@@ -267,22 +264,7 @@ Module Lvl.
   Qed.
 
   Next Obligation.
-  Proof.
-    apply Buffer.nonempty_length.
-    omega.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    simpl in Hp.
-    apply Buffer.nonempty_length.
-    omega.
-  Qed.
-
-  Next Obligation.
-  Proof.
-    destruct sSi ; firstorder.
-  Qed.
+  Proof. destruct sSi ; firstorder. Qed.
 
   Next Obligation.
   Proof.
@@ -294,7 +276,7 @@ Module Lvl.
   Proof.
     left ; assert (Hs: Buffer.length (suffix lvli) = 0) by omega.
     rewrite Hs in Hbuff.
-    destruct buff ; simpl in * ; firstorder. discriminate.
+    destruct buff ; simpl in * ; firstorder; discriminate.
   Qed.
 
   Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A))
