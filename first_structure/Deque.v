@@ -191,7 +191,7 @@ Module Lvl.
     in
     let (pi, pSi) := pairP in
     let (si, sSi) := pairS in
-    (makeLvl pi si, makeLvl pSi sSi).
+    (makeLvl pi si (is_last lvli), makeLvl pSi sSi (is_last lvlSi)).
 
   Next Obligation.
   Proof.
@@ -297,15 +297,16 @@ Module Lvl.
     destruct buff ; simpl in * ; firstorder. discriminate.
   Qed.
 
-  Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A)) :
+  Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A))
+    (Colori : color lvli = Red) (ColorSi : color lvlSi <> Red) :
     (t A * t (A * A)) :=
-    let (bool, H) := 
-      (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) ≥ 2
-    in
-    match bool with
-    | true => two_buffer_case lvli lvlSi _
-    | false => (lvli, lvlSi) (* TODO *)
+    match Buffer.length (prefix lvlSi) + Buffer.length (suffix lvlSi) ≥ 2 with
+    | left H => two_buffer_case lvli lvlSi Colori ColorSi _
+    | right _ => (lvli, lvlSi) (* TODO *)
     end.
+
+  Next Obligation.
+  Proof.  omega. Qed.
 
 End Lvl.
 
