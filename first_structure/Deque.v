@@ -279,6 +279,231 @@ Module Lvl.
     destruct buff ; simpl in * ; firstorder; discriminate.
   Qed.
 
+  (* A note on the hypotheses :
+   *   [ColorSi] assert that [lvlSi] might be empty. If that is the case, it
+   *   means that we just created it, implying that [lvli] was the bottom-most
+   *   level, and the conjunction of [Colori] and [Hi] tells us that one of its
+   *   buffers is full. *)
+  Program Definition one_buffer_case {A}
+    (lvli : t A)
+    (lvlSi : t (A * A))
+    (Colori : color lvli = Red)
+    (ColorSi : color lvlSi <> Red \/ is_empty lvlSi)
+    (HSi : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) <= 1)
+    (Hi : Buffer.length (prefix lvli) >= 2 \/ Buffer.length (suffix lvli) >= 2)
+    (LastLvl : is_empty lvlSi -> is_last lvli = true)
+  :=
+    let pSi_sig :
+      { b : Buffer.t (A * A) |
+        Buffer.length b <= 1 /\ (Buffer.length b = 0 -> is_last lvli = true) }:=
+      match Buffer.length (suffix lvlSi) as len_suff with
+      | 0 => prefix lvlSi
+      | 1 => suffix lvlSi
+      | _ => ! (* by HSi *)
+      end
+    in
+    let (pSi, HpSi) := pSi_sig in
+    let pairP :
+      { b : Buffer.t A | Buffer.color b <> Red \/ Buffer.is_empty b } *
+      { b : Buffer.t (A * A) |
+        if Buffer.length (prefix lvli) ≥ 4
+          then 0 < Buffer.length b <= 2
+          else Buffer.length b <= 1 /\ (Buffer.length b = 0 -> is_last lvli = true)
+      } :=
+      match Buffer.length (prefix lvli) ≥ 4 with 
+      | left _ =>
+        let (p, Hp) := Buffer.eject (prefix lvli) in
+        let '(elt1, buff1) := p in
+        let (p, Hp) := Buffer.eject buff1 in
+        let '(elt2, buff2) := p in
+        let (pSi_internal, HpSi_internal) := Buffer.push (elt2, elt1) pSi in
+        (buff2, pSi_internal)
+      | right _ =>
+        (* [prefix lvli] might contain less than two element, we want to pop
+         * from [pSi], but at that point it might still be empty. We need to
+         * push elements from [suffix lvli] (which by hypothesis contains more
+         * than 2 element) into it before we can replenish the prefix. *)
+        (prefix lvli, pSi)
+      end
+    in
+    let (pi, pSi) := pairP in
+    let pairSP : Buffer.t A *
+      { b : Buffer.t (A * A) |
+        if Buffer.length (suffix lvli) ≥ 4
+          then 0 < Buffer.length b <= 3
+          else Buffer.length b <= 2
+               /\ (Buffer.length b = 0 ->
+                    Buffer.length (suffix lvli) <= 1 \/ is_last lvli = true)
+      } :=
+      match (Buffer.length (suffix lvli)) ≥ 4 with
+      | left H =>
+          let (p, Hp) := Buffer.pop (suffix lvli) in
+          let '(elt1, buff) :=  p in
+          let (p, H) := Buffer.pop buff in
+          let '(elt2, buff) := p in
+         (buff, Buffer.inject (elt1, elt2) pSi)
+      | right _ =>
+        match 1 ≥ (Buffer.length (suffix lvli)) with
+        | left _ =>
+          let (p, Hp) := Buffer.eject pSi in
+          let '((elt1, elt2), pSi) := p in
+          let (buff, Hbuff) := Buffer.push elt2 (suffix lvli) in
+          (Buffer.push elt1 buff, pSi)
+        | right _ =>
+          (suffix lvli, pSi)
+        end
+      end
+    in
+    let (si, pSi) := pairSP in
+    let pairP2 : Buffer.t A * Buffer.t (A * A) :=
+      match 1 ≥ (Buffer.length (prefix lvli)) with
+      | left _ =>
+        let (p, Hp) := Buffer.pop pSi in
+        let '((elt1, elt2), pSi) := p in
+        let (buff, Hbuff) := Buffer.inject elt1 pi in
+        (Buffer.inject elt2 buff, pSi)
+      | right _ =>
+        (pi, pSi)
+      end
+    in
+    let (pi, pSi) := pairP2 in
+    (makeLvl pi si false, makeLvl pSi Buffer.Zero true).
+
+  Next Obligation.
+  Proof.
+    split.
+    - omega.
+    - intro H ; apply LastLvl.
+      destruct lvlSi ; destruct prefix0, suffix0 ; simpl in *; firstorder.
+  Qed.
+
+  Next Obligation.
+  Proof. split ; omega. Qed.
+
+  Next Obligation.
+  Proof. omega. Qed.
+
+  Next Obligation.
+  Proof.
+    simpl in *.
+    destruct pSi ; simpl in * ; firstorder ; left ; discriminate.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    left ; simpl in *.
+    destruct (prefix lvli) ; compute in wildcard' ; try (exfalso ; omega).
+    destruct t1, t0 ; compute in Hp ; compute in Hp0 ; compute ; intro C ;
+    try discriminate Hp0 ; try discriminate Hp ; try discriminate C.
+  Qed.
+
+  Next Obligation.
+  Proof. omega. Qed.
+
+  Next Obligation.
+  Proof.
+    destruct (prefix lvli) ; simpl in wildcard' ; compute ; solve [
+      (right ; trivial) |
+      (left ; intro F ; discriminate F) |
+      (exfalso ; omega)
+    ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct pSi0 ; simpl in * ; firstorder ; solve [
+      (left ; discriminate) |
+      (destruct (Buffer.length (prefix lvli) ≥ 4) ; omega)
+    ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    simpl in *.
+    destruct pSi0 ; compute ; try omega ; exfalso;
+    destruct (Buffer.length (prefix lvli) ≥ 4) ; compute in H1 ; omega.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    apply Buffer.nonempty_length.
+    destruct (Buffer.length (prefix lvli) ≥ 4).
+    - omega.
+    - destruct H1; inversion H1.
+      + omega.
+      + inversion H5.
+        apply H3 in H7.
+        assert (EmptySuff : Buffer.length (suffix lvli) = 0) by omega.
+        apply Buffer.empty_length in EmptySuff.
+        contradict Colori.
+        destruct lvli.
+        compute.
+        destruct (Buffer.dec_is_empty suffix0).
+        * simpl in *.
+          rewrite H7 ; simpl.
+          destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ;
+          discriminate H6.
+        * simpl in *.
+          contradiction.
+  Qed. (* TODO: clean up *)
+
+  Next Obligation.
+  Proof.
+    inversion wildcard'0.
+    + right ; apply Buffer.empty_length ; assumption.
+    + omega.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    assert (HL : Buffer.length (suffix lvli) = 0) by omega.
+    rewrite HL in Hbuff ; left.
+    destruct buff ; simpl in Hbuff ; firstorder ; discriminate.
+  Qed.
+
+  Next Obligation.
+  Proof. 
+    simpl in * ; split; destruct (Buffer.length (prefix lvli) ≥ 4) ;
+    try left ; omega.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    simpl in * ; split; destruct (Buffer.length (prefix lvli) ≥ 4) ; try omega.
+    intro HLpSi0 ; right.
+    destruct H1.
+    apply H3 ; apply HLpSi0.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    apply Buffer.nonempty_length.
+    destruct (Buffer.length (suffix lvli) ≥ 4) ; try omega.
+    destruct H1.
+    destruct (Buffer.length pSi1).
+    - assert (trivial : 0 = 0) by omega.
+      apply H4 in trivial.
+      destruct trivial.
+      + exfalso ; omega.
+      + assert (EmptyPre : Buffer.length (prefix lvli) = 0) by omega.
+        apply Buffer.empty_length in EmptyPre.
+        contradict Colori.
+        destruct lvli ; compute; destruct (Buffer.dec_is_empty suffix0);
+        destruct (Buffer.dec_is_empty prefix0); simpl in *; try rewrite H5;
+        destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ; discriminate H6.
+    - auto with arith.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    (* TODO:
+     *   Change H3 from
+     *       [Buffer.color pi <> Red \/ Buffer.is_empty pi]
+     *   to:
+     *       [Buffer.length pi < 4]
+     *)
+  Admitted.
+
   Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A))
     (Colori : color lvli = Red) (ColorSi : color lvlSi <> Red) :
     (t A * t (A * A)) :=
