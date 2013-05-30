@@ -395,8 +395,7 @@ Module Lvl.
   Proof.
     simpl in *.
     assert (HB: Buffer.length (prefix lvli) <= 5) by apply Buffer.bounded_length.
-    assert (HL5: Buffer.length (prefix lvli) = 5) by omega.
-    omega.
+    destruct (Buffer.length (prefix lvli)) ; omega.
   Qed.
 
   Next Obligation.
@@ -405,11 +404,6 @@ Module Lvl.
   Next Obligation.
   Proof.
     omega.
-    destruct (prefix lvli) ; simpl in wildcard' ; compute ; solve [
-      (right ; trivial) |
-      (left ; intro F ; discriminate F) |
-      (exfalso ; omega)
-    ].
   Qed.
 
   Next Obligation.
@@ -430,38 +424,41 @@ Module Lvl.
   Next Obligation.
   Proof.
     apply Buffer.nonempty_length.
-    destruct (Buffer.length (prefix lvli) ≥ 4).
-    - omega.
-    - destruct H1; inversion H1.
-      + omega.
-      + inversion H5.
-        apply H3 in H7.
-        assert (EmptySuff : Buffer.length (suffix lvli) = 0) by omega.
-        apply Buffer.empty_length in EmptySuff.
-        contradict Colori.
-        destruct lvli.
-        compute.
-        destruct (Buffer.dec_is_empty suffix0).
-        * simpl in *.
-          rewrite H7 ; simpl.
-          destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ;
-          discriminate H6.
-        * simpl in *.
-          contradiction.
+    destruct (Buffer.length (prefix lvli) ≥ 4) ; try omega.
+    destruct H1; inversion H1; try omega.
+    exfalso ; inversion H5.
+    apply H3 in H7.
+    destruct (Buffer.length (suffix lvli)) eqn:HLsi; try omega;
+    contradict Colori.
+    - destruct lvli; compute; destruct (Buffer.dec_is_empty suffix0); simpl in *.
+      + rewrite H7 ; simpl.
+        destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ;
+        discriminate H6.
+      + apply Buffer.empty_length in HLsi. contradiction.
+    - assert (trivial : n0 = 0) by omega; subst.
+      destruct lvli; compute; destruct (Buffer.dec_is_empty suffix0); simpl in *.
+      + apply Buffer.empty_length in i. congruence.
+      + destruct (Buffer.dec_is_empty prefix0).
+        * apply Buffer.empty_length in i. omega.
+        * destruct prefix0, suffix0 ; intro ; simpl in * ; auto ;
+          try discriminate H4 ; omega.
   Qed. (* TODO: clean up *)
 
   Next Obligation.
   Proof.
     inversion wildcard'0.
-    + right ; apply Buffer.empty_length ; assumption.
-    + omega.
+    + left ; destruct (suffix lvli) ; simpl in H4 ; solve [
+        discriminate H4 |
+        (compute ; discriminate)
+      ].
+    + right ; apply Buffer.empty_length ; auto with arith.
   Qed.
 
   Next Obligation.
   Proof.
-    assert (HL : Buffer.length (suffix lvli) = 0) by omega.
-    rewrite HL in Hbuff ; left.
-    destruct buff ; simpl in Hbuff ; firstorder ; discriminate.
+    destruct (Buffer.length (suffix lvli));
+      [ idtac | (assert (n = 0) by omega ; subst) ] ;
+    left; destruct buff ; simpl in Hbuff ; discriminate || discriminate Hbuff.
   Qed.
 
   Next Obligation.
@@ -488,9 +485,7 @@ Module Lvl.
       apply H4 in trivial.
       destruct trivial.
       + exfalso ; omega.
-      + assert (EmptyPre : Buffer.length (prefix lvli) = 0) by omega.
-        apply Buffer.empty_length in EmptyPre.
-        contradict Colori.
+      + contradict Colori.
         destruct lvli ; compute; destruct (Buffer.dec_is_empty suffix0);
         destruct (Buffer.dec_is_empty prefix0); simpl in *; try rewrite H5;
         destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ; discriminate H6.
@@ -499,13 +494,20 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-    (* TODO:
-     *   Change H3 from
-     *       [Buffer.color pi <> Red \/ Buffer.is_empty pi]
-     *   to:
-     *       [Buffer.length pi < 4]
-     *)
-  Admitted.
+    destruct pi ; simpl in H3 ; solve [
+      (left ; compute ; discriminate) |
+      (right; simpl ; trivial) |
+      omega
+    ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    left; destruct (Buffer.length pi); destruct buff ; solve [
+      (simpl in Hbuff ; omega) |
+      (compute ; intro C ; discriminate C)
+    ].
+  Qed.
 
   Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A))
     (Colori : color lvli = Red) (ColorSi : color lvlSi <> Red) :
