@@ -180,7 +180,7 @@ Module Lvl.
       | right _ =>
         match 1 ≥ (Buffer.length (suffix lvli)) with
         | left _ =>
-          let '(p, pSi) := Buffer.eject sSi in
+          let '(p, sSi) := Buffer.eject sSi in
           let '(elt1, elt2) := p in
           let (buff, Hbuff) := Buffer.push elt2 (suffix lvli) in
           (Buffer.push elt1 buff, sSi)
