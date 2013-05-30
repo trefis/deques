@@ -96,6 +96,7 @@ Module Lvl.
      try (
         (simpl in * |- *; apply Buffer.nonempty_length; omega)
      || (left; congruence)
+     || (try split ; omega)
      )).
 
   Program Definition two_buffer_case {A}
@@ -350,12 +351,6 @@ Module Lvl.
   Qed.
 
   Next Obligation.
-  Proof. split ; omega. Qed.
-
-  Next Obligation.
-  Proof. omega. Qed.
-
-  Next Obligation.
   Proof.
     simpl in *.
     destruct pSi ; simpl in * ; firstorder ; left ; discriminate.
@@ -366,14 +361,6 @@ Module Lvl.
     simpl in *.
     assert (HB: Buffer.length (prefix lvli) <= 5) by apply Buffer.bounded_length.
     destruct (Buffer.length (prefix lvli)) ; omega.
-  Qed.
-
-  Next Obligation.
-  Proof. omega. Qed.
-
-  Next Obligation.
-  Proof.
-    omega.
   Qed.
 
   Next Obligation.
