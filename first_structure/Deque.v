@@ -88,7 +88,7 @@ Module Lvl.
 
   Definition empty (A : Set) := makeLvl (A := A) Buffer.Zero Buffer.Zero.
 
-  Notation "x ≥ y" := (lt_ge_dec y x) (at level 70, right associativity).
+  Notation "x ≥ y" := (ge_dec x y) (at level 70, right associativity).
 
   Require Import Omega.
 
@@ -257,10 +257,11 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-    left.
-    assert (Hp: Buffer.length (prefix lvli) = 0) by omega.
-    rewrite Hp in Hbuff.
-    destruct buff ; simpl in * ; firstorder; discriminate.
+    left; clear Heq_anonymous1.
+    destruct (Buffer.length (prefix lvli)).
+    + destruct buff ; simpl in Hbuff ; discriminate || discriminate Hbuff.
+    + assert (Hn : n = 0) by omega.
+      destruct buff ; simpl in Hbuff ; discriminate || (exfalso ; omega).
   Qed.
 
   Next Obligation.
@@ -274,9 +275,11 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-    left ; assert (Hs: Buffer.length (suffix lvli) = 0) by omega.
-    rewrite Hs in Hbuff.
-    destruct buff ; simpl in * ; firstorder; discriminate.
+    left; clear Heq_anonymous1.
+    destruct (Buffer.length (suffix lvli)).
+    + destruct buff ; simpl in Hbuff ; discriminate || discriminate Hbuff.
+    + assert (Hn : n = 0) by omega.
+      destruct buff ; simpl in Hbuff ; discriminate || (exfalso ; omega).
   Qed.
 
   (* A note on the hypotheses :
@@ -303,8 +306,7 @@ Module Lvl.
       end
     in
     let (pSi, HpSi) := pSi_sig in
-    let pairP :
-      { b : Buffer.t A | Buffer.color b <> Red \/ Buffer.is_empty b } *
+    let pairP : { b : Buffer.t A | Buffer.length b < 4 } *
       { b : Buffer.t (A * A) |
         if Buffer.length (prefix lvli) ≥ 4
           then 0 < Buffer.length b <= 2
@@ -391,10 +393,10 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-    left ; simpl in *.
-    destruct (prefix lvli) ; compute in wildcard' ; try (exfalso ; omega).
-    destruct t1, t0 ; compute in Hp ; compute in Hp0 ; compute ; intro C ;
-    try discriminate Hp0 ; try discriminate Hp ; try discriminate C.
+    simpl in *.
+    assert (HB: Buffer.length (prefix lvli) <= 5) by apply Buffer.bounded_length.
+    assert (HL5: Buffer.length (prefix lvli) = 5) by omega.
+    omega.
   Qed.
 
   Next Obligation.
@@ -402,6 +404,7 @@ Module Lvl.
 
   Next Obligation.
   Proof.
+    omega.
     destruct (prefix lvli) ; simpl in wildcard' ; compute ; solve [
       (right ; trivial) |
       (left ; intro F ; discriminate F) |
