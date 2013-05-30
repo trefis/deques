@@ -105,38 +105,10 @@ Module Lvl.
     (ColorSi : color lvlSi <> Red)
     (H : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) >= 2)
   :=
-    (* Y:
-       Hmm, si je comprends bien le code suivant, il s'agit ici de rééquilibrer
-       les éléments entre le préfixe de lvlSi et le suffixe de lvlSi de façon à 
-       ce qu'aucun des deux ne soit vide.
-
-       J'imagine que l'on suppose que lvlSi est le dernier niveau de
-       la structure si l'un des deux buffers est vide, sinon je ne
-       vois pas comment cette opération pourrait avoir un sens : elle
-       ne préserve pas la séquence d'éléments sous-jacente représentée
-       par la structure. (Cette hypothèse est confirmée par la ligne
-       13, p587 de l'article.)
-
-       Du coup, n'est-il pas nécessaire d'expliciter cet invariant? J'écrirais
-       bien quelque chose comme:
-
-       Hbis: (Buffer.length (prefix lvlSi) = 0 \/ Buffer.length (suffix lvlSi) = 0)
-             -> is_last lvlSi = true
-       (Si on suppose avoir rajouté le champ is_last dans la structure.)      
-
-       mais peut-être que ce n'est pas nécessaire à la preuve...
-
-      T: C'est ça. Je vais essayer sans cette hypothèse et si nécessaire je
-         rajouterai.
-    *)
+    
     let pairSi
-    : { p : Buffer.t (A * A) | Buffer.color p <> Red }
-      * 
+    : { p : Buffer.t (A * A) | Buffer.color p <> Red } * 
       { p : Buffer.t (A * A) | Buffer.color p <> Red }
-(*
-    : { b : Buffer.t (A * A) * Buffer.t (A * A) 
-      | Buffer.color (fst b) <> Red /\ Buffer.color (snd b) <> Red }
-*)
     :=
       match Buffer.dec_is_empty (prefix lvlSi), Buffer.dec_is_empty (suffix lvlSi) with
       | left _, left _ => 
@@ -180,8 +152,6 @@ Module Lvl.
       end
     in
     let pairS : Buffer.t A * Buffer.t (A * A) :=
-(*      let '(too_many, H_s4) := (Buffer.length (suffix lvli)) ≥ 4 in
-      let '(too_few, H_s1) := 1 ≥ (Buffer.length (suffix lvli)) in *)
       match (Buffer.length (suffix lvli)) ≥ 4 with
       | left H =>
           let (p, Hp) := Buffer.pop (suffix lvli) in
