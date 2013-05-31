@@ -86,7 +86,7 @@ Module Lvl.
     left ; intro Color_mismatch ; discriminate Color_mismatch.
   Qed.
 
-  Definition empty (A : Set) := makeLvl (A := A) Buffer.Zero Buffer.Zero.
+  Definition empty (A : Set) := makeLvl (A := A) Buffer.Zero Buffer.Zero true.
 
   Notation "x ≥ y" := (ge_dec x y) (at level 70, right associativity).
 
@@ -474,9 +474,6 @@ Module Lvl.
     | right _ => (lvli, lvlSi) (* TODO *)
     end.
 
-  Next Obligation.
-  Proof.  omega. Qed.
-
 End Lvl.
 
 Module Stack.
@@ -489,68 +486,49 @@ Module Stack.
 
   Definition is_nil {A B : Set} (stack : t A B) : Prop :=
     match stack with
-    | Nil => True
+    | Nil _ => True
     | _ => False
     end.
 
-  Fixpoint all_yellows {A B : Set} (s : t A B) is_last : Prop :=
+  Fixpoint all_yellows {A B : Set} (s : t A B) : Prop :=
     match s with
-    | Nil => True
-    | Cons lvl Nil => Lvl.color lvl is_last = Yellow
-    | Cons lvl rest => (Lvl.color lvl false = Yellow) /\ all_yellows rest is_last
+    | Nil _ => True
+    | Cons _ _ lvl (Nil _) => Lvl.color lvl = Yellow
+    | Cons _ _ lvl rest    => Lvl.color lvl = Yellow /\ all_yellows rest
     end.
 
-  Definition well_formed {A B : Set} (stack : t A B) is_last :=
+  Definition well_formed {A B : Set} (stack : t A B) :=
     match stack with
-    | Nil => False
-    | Cons _top_level rest => all_yellows rest is_last
+    | Nil _ => False
+    | Cons _ _ _top_level rest => all_yellows rest
     end.
 
   Program Definition hd {A B : Set} (stack : t A B | ~ is_nil stack) :=
     match stack with
-    | Nil => !
-    | Cons hd _ => hd
+    | Nil _ => !
+    | Cons _ _ hd _ => hd
     end.
 
   Next Obligation.
   Proof. contradict H. rewrite <- Heq_stack; simpl ; auto. Qed.
 
   Theorem wf_impl_nnil :
-    forall A B, forall s : t A B, forall is_last,
-      well_formed s is_last -> ~ is_nil s.
-  Proof. induction s ; intros is_last H ; [ contradict H | auto ]. Qed.
+    forall A B, forall s : t A B, well_formed s -> ~ is_nil s.
+  Proof. induction s ; intros H ; [ contradict H | auto ]. Qed.
 
   Definition is_empty {A B : Set} (stack : t A B) : Prop :=
     match stack with
-    | Cons lvl Nil => Lvl.is_empty lvl
+    | Cons _ _ lvl (Nil _) => Lvl.is_empty lvl
     | _ => False
     end.
 
   Program Definition empty (A : Set) :
-    { s : t A (A * A) | well_formed s true /\ is_empty s } :=
+    { s : t A (A * A) | well_formed s /\ is_empty s } :=
     Cons (Lvl.empty A) Nil.
 
   Next Obligation.
   Proof. compute ; tauto. Qed.
 
-  Theorem wf_false_impl_true :
-    forall A B, forall s : t A B, well_formed s false -> well_formed s true.
-  Proof.
-    Lemma all_yellows_false_impl_true :
-      forall A B, forall s : t A B, all_yellows s false -> all_yellows s true.
-    Proof.
-      intros ; induction s ; auto; simpl in * |- *.
-      dependent destruction s.
-      - unfold Lvl.color in *.
-        destruct (Buffer.dec_is_empty (Lvl.suffix t0)).
-        + contradict H; discriminate.
-        + assumption.
-      - intuition.
-    Qed.
-    intros ; destruct s.
-    - contradict H ; auto.
-    - simpl in *. apply all_yellows_false_impl_true ; assumption.
-  Qed.
 End Stack.
 
 Module S := Stack.
@@ -558,7 +536,7 @@ Module S := Stack.
 Inductive deque (A : Set) : Type :=
   | Nil : deque A
   | Cons :
-    forall B : Set, forall s : S.t A B, S.well_formed s false -> deque B -> deque A.
+    forall B : Set, forall s : S.t A B, S.well_formed s -> deque B -> deque A.
 
 Arguments Nil [A].
 Arguments Cons [A B] _ _ _.
@@ -576,8 +554,8 @@ Program Definition color {A : Set} (d : t A) : color :=
   | ∅ => Red
   | top_stack ++ rest =>
     match rest with
-    | ∅ => Lvl.color (S.hd top_stack) true
-    | _ => Lvl.color (S.hd top_stack) false
+    | ∅ => Lvl.color (S.hd top_stack)
+    | _ => Lvl.color (S.hd top_stack)
     end
   end.
 
@@ -659,6 +637,7 @@ Program Definition regularize {A : Set} (d : t A)
     !
   | _ => !
   end.
+
 Admit Obligations.
 (* Error: Anomaly: Uncaught exception Type_errors.TypeError(_, _).
  *        Please report. *)
