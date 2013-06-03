@@ -466,6 +466,80 @@ Module Lvl.
     ].
   Qed.
 
+  Program Definition no_buffer_case {A : Set}
+    (lvli : t A)
+    (lvlSi : t (A * A))
+    (Colori : color lvli = Red)
+    (ColorSi : color lvlSi <> Red)
+    (Hi : Buffer.length (prefix lvli) <= 1 /\ Buffer.length (suffix lvli) <= 1)
+    (HSi : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) <= 1)
+  :=
+    let pi_sig : { b : Buffer.t A | Buffer.length b <= 3 } :=
+      match Buffer.length (prefix lvlSi), Buffer.length (suffix lvlSi) with
+      | 0, 0 => prefix lvli
+      | 1, 0 =>
+        let (pair, _) := Buffer.pop (prefix lvlSi) in
+        let '((elt1, elt2), _) := pair in
+        let (tmpi, _) := Buffer.inject elt1 (prefix lvli) in
+        let (pi, _) := Buffer.inject elt2 tmpi in
+        pi
+      | 0, 1 =>
+        let (pair, _) := Buffer.pop (suffix lvlSi) in
+        let '((elt1, elt2), _) := pair in
+        let (tmpi, _) := Buffer.inject elt1 (prefix lvli) in
+        let (pi, _) := Buffer.inject elt2 tmpi in
+        pi
+      | _, _ => ! (* by HSi *)
+      end
+    in
+    let (pi, Hpi) := pi_sig in
+    let pi : Buffer.t A :=
+      match Buffer.length (suffix lvli) with
+      | 0 => pi
+      | 1 =>
+        let (pair, _) := Buffer.pop (suffix lvli) in
+        let (elt, _) := pair in
+        let (pi, _) := Buffer.inject elt pi in
+        pi
+      | _ => !
+      end
+    in
+    (makeLvl pi Buffer.Zero true).
+
+  Next Obligation.
+  Proof.
+    destruct (prefix lvli) ; simpl in H0 ; try omega ; simpl ;
+      [ (right ; trivial) | (left ; discriminate) ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    left ; destruct (Buffer.length (prefix lvli)) ; try omega ;
+    destruct tmpi ; simpl in H0 ; try omega ;
+    simpl ; discriminate.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct (prefix lvli) ; simpl in H0 ; try omega ; simpl ;
+      [ (right ; trivial) | (left ; discriminate) ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    left ; destruct (Buffer.length (prefix lvli)) ; try omega ;
+    destruct tmpi ; simpl in H0 ; try omega ;
+    simpl ; discriminate.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct pi ; simpl in Hpi ; try omega ; simpl ; solve [
+      (right ; trivial) |
+      (left ; discriminate)
+    ].
+  Qed.
+
   Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A))
     (Colori : color lvli = Red) (ColorSi : color lvlSi <> Red) :
     (t A * t (A * A)) :=
