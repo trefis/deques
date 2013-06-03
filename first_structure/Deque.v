@@ -105,6 +105,7 @@ Module Lvl.
     (Colori : color lvli = Red)
     (ColorSi : color lvlSi <> Red)
     (H : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) >= 2)
+    : { bi : t A | color bi = Green } * t (A * A)
   :=
     
     let pairSi
@@ -132,41 +133,45 @@ Module Lvl.
       end
     in
     let (pSi, sSi) := pairSi in
-    let pairP : Buffer.t A * Buffer.t (A * A) :=
+    let pairP : { b : Buffer.t A | Buffer.color b = Green } * Buffer.t (A * A) :=
       match Buffer.length (prefix lvli) ≥ 4 with 
       | left _ =>
         let (p, Hp) := Buffer.eject (prefix lvli) in
         let '(elt1, buff1) := p in
         let (p, Hp) := Buffer.eject buff1 in
         let '(elt2, buff2) := p in
-        (buff2, Buffer.push (elt2, elt1) pSi)
+        let (buff3, Hlol) := Buffer.push (elt2, elt1) pSi in
+        (buff2, buff3)
       | right _ =>
         match 1 ≥ Buffer.length (prefix lvli) with
         | left _ =>
           let '(p, pSi) := Buffer.pop pSi in
           let '(elt1, elt2) := p in
           let (buff, Hbuff) := Buffer.inject elt1 (prefix lvli) in
-          (Buffer.inject elt2 buff, pSi)
+          let (buff2, Hbuff2) := Buffer.inject elt2 buff in
+          (buff2, pSi)
         | right _ =>
           (prefix lvli, pSi)
         end
       end
     in
-    let pairS : Buffer.t A * Buffer.t (A * A) :=
+    let pairS : { b : Buffer.t A | Buffer.color b = Green } * Buffer.t (A * A) :=
       match (Buffer.length (suffix lvli)) ≥ 4 with
       | left H =>
-          let (p, Hp) := Buffer.pop (suffix lvli) in
-          let '(elt1, buff) :=  p in
-          let (p, H) := Buffer.pop buff in
-          let '(elt2, buff) := p in
-         (buff, Buffer.inject (elt1, elt2) sSi)
+        let (p, Hp) := Buffer.pop (suffix lvli) in
+        let '(elt1, buff) :=  p in
+        let (p, H) := Buffer.pop buff in
+        let '(elt2, buff) := p in
+        let (buff2, Hlol) := Buffer.inject (elt1, elt2) sSi in
+        (buff, buff2)
       | right _ =>
         match 1 ≥ (Buffer.length (suffix lvli)) with
         | left _ =>
           let '(p, sSi) := Buffer.eject sSi in
           let '(elt1, elt2) := p in
           let (buff, Hbuff) := Buffer.push elt2 (suffix lvli) in
-          (Buffer.push elt1 buff, sSi)
+          let (buff2, Hbuff2) := Buffer.push elt1 buff in
+          (buff2, sSi)
         | right _ =>
           (suffix lvli, sSi)
         end
@@ -222,6 +227,14 @@ Module Lvl.
   Qed.
 
   Next Obligation.
+  Proof.
+    simpl in *.
+    assert (Hmax : Buffer.length (prefix lvli) <= 5) by apply Buffer.bounded_length.
+    destruct (Buffer.length (prefix lvli)) ; try omega.
+    destruct t0 ; simpl in Hp0 ; try omega ; simpl ; reflexivity.
+  Qed.
+
+  Next Obligation.
   Proof. destruct pSi ; firstorder. Qed.
 
   Next Obligation.
@@ -240,6 +253,27 @@ Module Lvl.
   Qed.
 
   Next Obligation.
+  Proof.
+    clear Heq_anonymous1; simpl in *.
+    destruct (Buffer.length (prefix lvli)) ; try omega ;
+    rewrite Hbuff in Hbuff2 ;
+    destruct buff2 ; simpl in * ; try omega ; reflexivity.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct (prefix lvli) ; simpl in * ; solve [ omega | reflexivity ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    simpl in *.
+    assert (Hmax : Buffer.length (suffix lvli) <= 5) by apply Buffer.bounded_length.
+    destruct (Buffer.length (suffix lvli)) ; try omega.
+    destruct t0 ; simpl in H1 ; try omega ; simpl ; reflexivity.
+  Qed.
+
+  Next Obligation.
   Proof. destruct sSi ; firstorder. Qed.
 
   Next Obligation.
@@ -255,6 +289,28 @@ Module Lvl.
     + destruct buff ; simpl in Hbuff ; discriminate || discriminate Hbuff.
     + assert (Hn : n = 0) by omega.
       destruct buff ; simpl in Hbuff ; discriminate || (exfalso ; omega).
+  Qed.
+
+  Next Obligation.
+  Proof.
+    clear Heq_anonymous1; simpl in *.
+    destruct (Buffer.length (prefix lvli)) ; try omega ;
+    rewrite Hbuff in Hbuff2 ;
+    destruct buff2 ; simpl in * ; try omega ; reflexivity.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct (suffix lvli) ; simpl in * ; solve [ omega | reflexivity ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct pi, si, (is_last lvli) ; simpl in H1, H0 ; first [
+      discriminate H0 |
+      discriminate H1 |
+      idtac
+    ] ; simpl ; reflexivity.
   Qed.
 
   (* A note on the hypotheses :
