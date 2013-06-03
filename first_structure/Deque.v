@@ -202,19 +202,23 @@ Module Lvl.
   Qed.    
 
   Next Obligation.
-  Proof. (* A bit crude, I'll admit. *)
+  Proof.
     destruct lvlSi; compute in ColorSi; compute ;
-    destruct (Buffer.dec_is_empty prefix0), (Buffer.dec_is_empty suffix0);
-    destruct prefix0, suffix0, is_last0; firstorder;
-    discriminate H0.
+    destruct prefix0, suffix0, is_last0 ; simpl in * ;
+    intro color_mismatch ; solve [
+      discriminate color_mismatch |
+      auto
+    ].
   Qed.
 
   Next Obligation.
   Proof.
     destruct lvlSi; compute in ColorSi; compute ;
-    destruct (Buffer.dec_is_empty prefix0), (Buffer.dec_is_empty suffix0);
-    destruct prefix0, suffix0, is_last0; firstorder;
-    discriminate H0.
+    destruct prefix0, suffix0, is_last0 ; simpl in * ;
+    intro color_mismatch ; solve [
+      discriminate color_mismatch |
+      auto
+    ].
   Qed.
 
   Next Obligation.
@@ -387,18 +391,14 @@ Module Lvl.
     apply H3 in H7.
     destruct (Buffer.length (suffix lvli)) eqn:HLsi; try omega;
     contradict Colori.
-    - destruct lvli; compute; destruct (Buffer.dec_is_empty suffix0); simpl in *.
-      + rewrite H7 ; simpl.
-        destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ;
-        discriminate H6.
-      + apply Buffer.empty_length in HLsi. contradiction.
+    - destruct lvli; compute; simpl in *.
+      rewrite H7 ; simpl.
+      destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ;
+      discriminate H6.
     - assert (trivial : n0 = 0) by omega; subst.
-      destruct lvli; compute; destruct (Buffer.dec_is_empty suffix0); simpl in *.
-      + apply Buffer.empty_length in i. congruence.
-      + destruct (Buffer.dec_is_empty prefix0).
-        * apply Buffer.empty_length in i. omega.
-        * destruct prefix0, suffix0 ; intro ; simpl in * ; auto ;
-          try discriminate H4 ; omega.
+      destruct lvli; compute; simpl in *.
+      destruct prefix0, suffix0 ; intro ; simpl in * ; auto ;
+      try discriminate H4 ; omega.
   Qed. (* TODO: clean up *)
 
   Next Obligation.
@@ -443,8 +443,7 @@ Module Lvl.
       destruct trivial.
       + exfalso ; omega.
       + contradict Colori.
-        destruct lvli ; compute; destruct (Buffer.dec_is_empty suffix0);
-        destruct (Buffer.dec_is_empty prefix0); simpl in *; try rewrite H5;
+        destruct lvli ; compute; simpl in *; try rewrite H5;
         destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ; discriminate H6.
     - auto with arith.
   Qed.
@@ -697,10 +696,7 @@ Program Definition empty (A : Set) : { d : t A | regular d } :=
   empty_stack ++ ∅ .
 
 Next Obligation.
-Proof with tauto.
-  compute.
-  destruct (Buffer.dec_is_empty (Buffer.Zero (A:=A)))...
-Qed.
+Proof. compute ; tauto. Qed.
 
 Program Definition regularize {A : Set} (d : t A)
   (Hsr : semi_regular d) (Color : color d = Red) : t A :=

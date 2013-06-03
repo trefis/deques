@@ -22,12 +22,12 @@ Definition is_empty {A : Set} (buff : t A) : Prop :=
   | _ => False
   end.
 
-Theorem dec_is_empty :
+Definition dec_is_empty :
   forall {A : Set}, forall buff : t A,
     { is_empty buff } + { ~ is_empty buff }.
 Proof.
   destruct buff ; simpl ; auto.
-Qed.
+Defined.
 
 Definition length {A : Set} (buff : t A) : nat :=
   match buff with
