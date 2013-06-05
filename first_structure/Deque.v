@@ -307,9 +307,7 @@ Module Lvl.
   Next Obligation.
   Proof.
     destruct pi, si, (is_last lvli) ; simpl in H1, H0 ; first [
-      discriminate H0 |
-      discriminate H1 |
-      idtac
+      discriminate H0 | discriminate H1 | idtac
     ] ; simpl ; reflexivity.
   Qed.
 
@@ -326,6 +324,7 @@ Module Lvl.
     (HSi : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) <= 1)
     (Hi : Buffer.length (prefix lvli) >= 2 \/ Buffer.length (suffix lvli) >= 2)
     (LastLvl : is_empty lvlSi -> is_last lvli = true)
+  : { bi : t A | color bi = Green } * t (A * A)
   :=
     let pSi_sig :
       { b : Buffer.t (A * A) |
@@ -337,7 +336,12 @@ Module Lvl.
       end
     in
     let (pSi, HpSi) := pSi_sig in
-    let pairP : { b : Buffer.t A | Buffer.length b < 4 } *
+    let pairP :
+      { b : Buffer.t A |
+        if Buffer.length (prefix lvli) ≥ 4
+          then 1 < Buffer.length b <= 3
+          else b = prefix lvli
+      } *
       { b : Buffer.t (A * A) |
         if Buffer.length (prefix lvli) ≥ 4
           then 0 < Buffer.length b <= 2
@@ -360,7 +364,7 @@ Module Lvl.
       end
     in
     let (pi, pSi) := pairP in
-    let pairSP : Buffer.t A *
+    let pairSP : { b : Buffer.t A | Buffer.color b = Green } *
       { b : Buffer.t (A * A) |
         if Buffer.length (suffix lvli) ≥ 4
           then 0 < Buffer.length b <= 3
@@ -370,31 +374,34 @@ Module Lvl.
       } :=
       match (Buffer.length (suffix lvli)) ≥ 4 with
       | left H =>
-          let (p, Hp) := Buffer.pop (suffix lvli) in
-          let '(elt1, buff) :=  p in
-          let (p, H) := Buffer.pop buff in
-          let '(elt2, buff) := p in
-         (buff, Buffer.inject (elt1, elt2) pSi)
+        let (p, Hp) := Buffer.pop (suffix lvli) in
+        let '(elt1, buff) :=  p in
+        let (p, H) := Buffer.pop buff in
+        let '(elt2, buff) := p in
+        let (buff2, Hbuff2) := Buffer.inject (elt1, elt2) pSi in
+        (buff, buff2)
       | right _ =>
         match 1 ≥ (Buffer.length (suffix lvli)) with
         | left _ =>
           let (p, Hp) := Buffer.eject pSi in
           let '((elt1, elt2), pSi) := p in
           let (buff, Hbuff) := Buffer.push elt2 (suffix lvli) in
-          (Buffer.push elt1 buff, pSi)
+          let (buff2, Hbuff2) := Buffer.push elt1 buff in
+          (buff2, pSi)
         | right _ =>
           (suffix lvli, pSi)
         end
       end
     in
     let (si, pSi) := pairSP in
-    let pairP2 : Buffer.t A * Buffer.t (A * A) :=
-      match 1 ≥ (Buffer.length (prefix lvli)) with
+    let pairP2 : { b : Buffer.t A | Buffer.color b = Green }  * Buffer.t (A * A) :=
+      match 1 ≥ Buffer.length (prefix lvli) with
       | left _ =>
         let (p, Hp) := Buffer.pop pSi in
         let '((elt1, elt2), pSi) := p in
-        let (buff, Hbuff) := Buffer.inject elt1 pi in
-        (Buffer.inject elt2 buff, pSi)
+        let (buff, Hbuff) := Buffer.inject elt1 (prefix lvli) in
+        let (buff2, Hbuff2) := Buffer.inject elt2 buff in
+        (buff2, pSi)
       | right _ =>
         (pi, pSi)
       end
@@ -434,9 +441,22 @@ Module Lvl.
   Next Obligation.
   Proof.
     simpl in *.
+    assert (Hmax : Buffer.length (suffix lvli) <= 5) by apply Buffer.bounded_length.
+    destruct (Buffer.length (suffix lvli)) ; try omega.
+    injection Hp ; intro Hn ; rewrite Hn in H0 ; subst.
+    destruct t0 ; simpl in * ; try omega ; reflexivity.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    simpl in *.
+    destruct (Buffer.length (prefix lvli) ≥ 4) ; compute in H1 ; omega.
+  Qed.
+  (*
     destruct pSi0 ; compute ; try omega ; exfalso;
     destruct (Buffer.length (prefix lvli) ≥ 4) ; compute in H1 ; omega.
   Qed.
+  *)
 
   Next Obligation.
   Proof.
@@ -454,7 +474,7 @@ Module Lvl.
     - assert (trivial : n0 = 0) by omega; subst.
       destruct lvli; compute; simpl in *.
       destruct prefix0, suffix0 ; intro ; simpl in * ; auto ;
-      try discriminate H4 ; omega.
+      try discriminate H2 ; omega.
   Qed. (* TODO: clean up *)
 
   Next Obligation.
@@ -476,8 +496,21 @@ Module Lvl.
 
   Next Obligation.
   Proof. 
+    simpl in *.
+    destruct (Buffer.length (suffix lvli)) ; try omega ;
+    destruct buff2 ; simpl in * ; try omega ; reflexivity.
+  Qed.
+
+  Next Obligation.
+  Proof. 
     simpl in * ; split; destruct (Buffer.length (prefix lvli) ≥ 4) ;
     try left ; omega.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    simpl in *.
+    destruct (suffix lvli) ; simpl in * ; solve [ omega | reflexivity ].
   Qed.
 
   Next Obligation.
@@ -495,18 +528,18 @@ Module Lvl.
     destruct H1.
     destruct (Buffer.length pSi1).
     - assert (trivial : 0 = 0) by omega.
-      apply H4 in trivial.
+      apply H5 in trivial.
       destruct trivial.
       + exfalso ; omega.
       + contradict Colori.
-        destruct lvli ; compute; simpl in *; try rewrite H5;
-        destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ; discriminate H6.
+        destruct lvli ; compute; simpl in *; try rewrite H6;
+        destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ; discriminate H7.
     - auto with arith.
   Qed.
 
   Next Obligation.
   Proof.
-    destruct pi ; simpl in H3 ; solve [
+    destruct (prefix lvli) ; simpl in wildcard' ; solve [
       (left ; compute ; discriminate) |
       (right; simpl ; trivial) |
       omega
@@ -519,6 +552,28 @@ Module Lvl.
       (simpl in Hbuff ; omega) |
       (compute ; intro C ; discriminate C)
     ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct (prefix lvli) ; simpl in * ; try omega ;
+    rewrite Hbuff in Hbuff2 ; destruct buff2 ; simpl in * ; solve [
+      omega | reflexivity
+    ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct (Buffer.length (prefix lvli) ≥ 4).
+    + destruct pi ; simpl in H4 |- *; solve [ omega | reflexivity ].
+    + subst. destruct (prefix lvli) ; simpl in * ; solve [ omega | reflexivity ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct pi0, si; simpl in H1, H3 ; first [
+      discriminate H1 | discriminate H3 | idtac
+    ] ; simpl ; reflexivity.
   Qed.
 
   Program Definition no_buffer_case {A : Set}
