@@ -452,11 +452,6 @@ Module Lvl.
     simpl in *.
     destruct (Buffer.length (prefix lvli) ≥ 4) ; compute in H1 ; omega.
   Qed.
-  (*
-    destruct pSi0 ; compute ; try omega ; exfalso;
-    destruct (Buffer.length (prefix lvli) ≥ 4) ; compute in H1 ; omega.
-  Qed.
-  *)
 
   Next Obligation.
   Proof.
@@ -583,10 +578,13 @@ Module Lvl.
     (ColorSi : color lvlSi <> Red)
     (Hi : Buffer.length (prefix lvli) <= 1 /\ Buffer.length (suffix lvli) <= 1)
     (HSi : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) <= 1)
+  : { b : t A | color b = Green }
   :=
-    let pi_sig : { b : Buffer.t A | Buffer.length b <= 3 } :=
+    let pi_sig : {
+        b : Buffer.t A | Buffer.length b = 2 + Buffer.length (prefix lvli)
+      }
+    :=
       match Buffer.length (prefix lvlSi), Buffer.length (suffix lvlSi) with
-      | 0, 0 => prefix lvli
       | 1, 0 =>
         let (pair, _) := Buffer.pop (prefix lvlSi) in
         let '((elt1, elt2), _) := pair in
@@ -603,7 +601,7 @@ Module Lvl.
       end
     in
     let (pi, Hpi) := pi_sig in
-    let pi : Buffer.t A :=
+    let pi_sig2 : { b : Buffer.t A | Buffer.color b = Green } :=
       match Buffer.length (suffix lvli) with
       | 0 => pi
       | 1 =>
@@ -614,6 +612,7 @@ Module Lvl.
       | _ => !
       end
     in
+    let (pi, Hpi) := pi_sig2 in
     (makeLvl pi Buffer.Zero true).
 
   Next Obligation.
@@ -644,12 +643,27 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-    destruct pi ; simpl in Hpi ; try omega ; simpl ; solve [
-      (right ; trivial) |
-      (left ; discriminate)
-    ].
+    destruct lvlSi; destruct prefix0, suffix0, is_last0; simpl in *; try omega;
+    contradict ColorSi ; simpl ; reflexivity.
   Qed.
 
+  Next Obligation.
+  Proof.
+    destruct pi ; simpl in * ; reflexivity || omega.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    left ; destruct pi ; simpl in * ; try omega ; discriminate.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct pi0 ; simpl in * ; first [ reflexivity | omega | idtac ].
+    destruct lvli ; destruct prefix0, suffix0 ; simpl in * ; try omega.
+    destruct is_last0 ; simpl in Colori ; discriminate Colori.
+  Qed.
+  
   Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A))
     (Colori : color lvli = Red) (ColorSi : color lvlSi <> Red) :
     (t A * t (A * A)) :=
