@@ -790,18 +790,18 @@ Notation "a ::: b" := (@S.Cons _ _ a b) (at level 55, right associativity).
 Program Definition color {A : Set} (d : t A) : color :=
   match d with
   | ∅ => Red
-  | top_stack ++ rest =>
-    match rest with
-    | ∅ => Lvl.color (S.hd top_stack)
-    | _ => Lvl.color (S.hd top_stack)
+  | top_stack ++ _ =>
+    match top_stack with
+    | [] => !
+    | toplvl ::: _ => Lvl.color toplvl
     end
   end.
 
 Next Obligation.
-Proof. destruct top_stack; auto. Qed.
-
-Next Obligation.
-Proof. destruct top_stack, rest ; firstorder. Qed.
+Proof.
+  apply JMeq_eq in Heq_top_stack.
+  subst ; contradiction.
+Qed.
 
 Fixpoint semi_regular {A : Set} (d : t A) : Prop :=
   match d with
