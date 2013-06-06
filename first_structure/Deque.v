@@ -665,12 +665,52 @@ Module Lvl.
   Qed.
   
   Program Definition equilibrate {A : Set} (lvli : t A) (lvlSi : t (A * A))
-    (Colori : color lvli = Red) (ColorSi : color lvlSi <> Red) :
-    (t A * t (A * A)) :=
+    (Colori : color lvli = Red)
+    (ColorSi : color lvlSi <> Red \/ is_empty lvlSi)
+    (Last : is_empty lvlSi -> is_last lvli = true)
+    (Has_elements : ~ (is_empty lvli /\ is_empty lvlSi))
+  : { lvl : t A | color lvl = Green } * t (A * A)
+  :=
     match Buffer.length (prefix lvlSi) + Buffer.length (suffix lvlSi) ≥ 2 with
-    | left H => two_buffer_case lvli lvlSi Colori ColorSi _
-    | right _ => (lvli, lvlSi) (* TODO *)
+    | left H => two_buffer_case lvli lvlSi Colori _ _
+    | right _ =>
+      match Buffer.length (prefix lvli) ≥ 2, Buffer.length (suffix lvli) ≥ 2 with
+      | left _, _
+      | _, left _ => one_buffer_case lvli lvlSi Colori ColorSi _ _ _
+      | right _, right _ =>
+        (no_buffer_case lvli lvlSi Colori _ _ _, empty (A * A))
+      end
     end.
+
+  Next Obligation.
+  Proof.
+    destruct ColorSi.
+    + assumption.
+    + unfold is_empty in H0 ; rewrite <- 2 Buffer.empty_length in H0.
+      omega.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct lvlSi eqn:Si ; destruct prefix0, suffix0 ; simpl in * ; try omega.
+    - assert (H : is_empty lvlSi) by (subst ; compute ; tauto).
+      subst ; apply Last in H.
+      destruct lvli ; simpl in H ; subst ; destruct prefix0, suffix0 ;
+      simpl in * ; try omega ; solve [
+        (contradict Has_elements ; compute ; tauto) |
+        (contradict Colori ; compute ; discriminate)
+      ].
+    - destruct is_last0.
+      + compute ; discriminate.
+      + destruct ColorSi as [ Hcolor_fail | Hempty_fail ].
+        * contradict Hcolor_fail ; compute ; reflexivity.
+        * contradict Hempty_fail ; compute ; firstorder.
+    - destruct is_last0.
+      + compute ; discriminate.
+      + destruct ColorSi as [ Hcolor_fail | Hempty_fail ].
+        * contradict Hcolor_fail ; compute ; reflexivity.
+        * contradict Hempty_fail ; compute ; firstorder.
+  Qed.
 
 End Lvl.
 
