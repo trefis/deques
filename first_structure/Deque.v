@@ -67,9 +67,9 @@ Module Lvl.
   Program Definition push {A : Set} (x : A)
     (t : t A | color t <> Red \/ is_empty t) :=
     if Buffer.dec_is_empty (prefix t) then
-      makeLvl (Buffer.push x (suffix t)) Buffer.Zero
+      makeLvl (Buffer.push x (suffix t)) Buffer.Zero (is_last t)
     else
-      makeLvl (Buffer.push x (prefix t)) (suffix t).
+      makeLvl (Buffer.push x (prefix t)) (suffix t) (is_last t).
 
   Next Obligation.
   Proof.
