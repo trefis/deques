@@ -863,14 +863,41 @@ Program Definition empty (A : Set) : { d : t A | regular d } :=
 Next Obligation.
 Proof. compute ; tauto. Qed.
 
+Inductive regularisation_cases (A : Set) : t A -> Type :=
+  | empty_case : regularisation_cases A ∅
+  | one_level_case :
+    forall lvli : Lvl.t A,
+    forall wf_p : S.well_formed (lvli ::: []),
+    regularisation_cases A (Cons (lvli ::: []) wf_p ∅)
+  | general_case1 :
+    forall B : Set,
+    forall lvli lvlSi yellows,
+    forall rest : t B,
+    forall wf_p : S.well_formed (lvli ::: lvlSi ::: yellows),
+    regularisation_cases A (Cons (lvli ::: lvlSi ::: yellows) wf_p rest)
+  | general_case2 :
+    forall B : Set,
+    forall lvli lvlSi yellows,
+    forall rest : t B,
+    forall wftop_p : S.well_formed (lvli ::: []),
+    forall wfsnd_p : S.well_formed (lvlSi ::: yellows),
+    regularisation_cases A
+      (Cons (lvli ::: []) wftop_p
+        (Cons (lvlSi ::: yellows) wfsnd_p rest)).
+
+Parameter dispatch :
+  forall A : Set,
+  forall d : t A,
+  regularisation_cases A d.
+
 Program Definition regularize {A : Set} (d : t A)
   (Hsr : semi_regular d) (Color : color d = Red) : t A :=
-  match d with
-  | ∅ => ∅
-  | (top_lvl ::: []) ++ (second_lvl ::: yellows) ++ rest
-  | (top_lvl ::: second_lvl ::: yellows) ++ rest =>
-    !
-  | _ => !
+  match dispatch A d with
+  | empty_case => ∅
+  | one_level_case lvli _ => d
+  | general_case1 _B lvli lvlSi yellows rest _
+  | general_case2 _B lvli lvlSi yellows rest _ _ =>
+    d
   end.
 
 Admit Obligations.
