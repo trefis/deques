@@ -105,12 +105,22 @@ Module Lvl.
     (Colori : color lvli = Red)
     (ColorSi : color lvlSi <> Red)
     (H : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) >= 2)
-    : { bi : t A | color bi = Green } * t (A * A)
+    : { li  : t A | color li = Green /\ is_last li = false } *
+      { lSi : t (A * A)
+          | (color lSi = Red -> color lvlSi <> Green \/ is_last lvlSi = true)
+            /\ is_last lSi = is_last lvlSi
+      }
   :=
     
     let pairSi
-    : { p : Buffer.t (A * A) | Buffer.color p <> Red } * 
-      { p : Buffer.t (A * A) | Buffer.color p <> Red }
+    : { p : Buffer.t (A * A) |
+        Buffer.color p <> Red /\
+        (Buffer.color p <> Green -> color lvlSi <> Green \/ is_last lvlSi = true)
+      } * 
+      { s : Buffer.t (A * A) |
+        Buffer.color s <> Red /\
+        (Buffer.color s <> Green -> color lvlSi <> Green \/ is_last lvlSi = true)
+      }
     :=
       match Buffer.dec_is_empty (prefix lvlSi), Buffer.dec_is_empty (suffix lvlSi) with
       | left _, left _ => 
@@ -133,7 +143,11 @@ Module Lvl.
       end
     in
     let (pSi, sSi) := pairSi in
-    let pairP : { b : Buffer.t A | Buffer.color b = Green } * Buffer.t (A * A) :=
+    let pairP :
+      { b : Buffer.t A | Buffer.color b = Green } *
+      { b : Buffer.t (A * A)
+          | Buffer.color b = Red -> color lvlSi <> Green \/ is_last lvlSi = true }
+    :=
       match Buffer.length (prefix lvli) ≥ 4 with 
       | left _ =>
         let (p, Hp) := Buffer.eject (prefix lvli) in
@@ -145,7 +159,8 @@ Module Lvl.
       | right _ =>
         match 1 ≥ Buffer.length (prefix lvli) with
         | left _ =>
-          let '(p, pSi) := Buffer.pop pSi in
+          let (pair, HpSi) := Buffer.pop pSi in
+          let '(p, pSi) := pair in
           let '(elt1, elt2) := p in
           let (buff, Hbuff) := Buffer.inject elt1 (prefix lvli) in
           let (buff2, Hbuff2) := Buffer.inject elt2 buff in
@@ -155,7 +170,11 @@ Module Lvl.
         end
       end
     in
-    let pairS : { b : Buffer.t A | Buffer.color b = Green } * Buffer.t (A * A) :=
+    let pairS :
+      { b : Buffer.t A | Buffer.color b = Green } *
+      { b : Buffer.t (A * A)
+          | Buffer.color b = Red -> color lvlSi <> Green \/ is_last lvlSi = true }
+    :=
       match (Buffer.length (suffix lvli)) ≥ 4 with
       | left H =>
         let (p, Hp) := Buffer.pop (suffix lvli) in
@@ -167,7 +186,8 @@ Module Lvl.
       | right _ =>
         match 1 ≥ (Buffer.length (suffix lvli)) with
         | left _ =>
-          let '(p, sSi) := Buffer.eject sSi in
+          let (pair, HsSi) := Buffer.eject sSi in
+          let '(p, sSi) := pair in
           let '(elt1, elt2) := p in
           let (buff, Hbuff) := Buffer.push elt2 (suffix lvli) in
           let (buff2, Hbuff2) := Buffer.push elt1 buff in
@@ -179,7 +199,7 @@ Module Lvl.
     in
     let (pi, pSi) := pairP in
     let (si, sSi) := pairS in
-    (makeLvl pi si (is_last lvli), makeLvl pSi sSi (is_last lvlSi)).
+    (makeLvl pi si false, makeLvl pSi sSi (is_last lvlSi)).
 
   Next Obligation.
   Proof.
@@ -190,39 +210,78 @@ Module Lvl.
 
   Next Obligation. 
   Proof. 
-    simpl in * |- * .
+    split ; [ discriminate | intro ].
     assert (Hs: Buffer.length (prefix lvlSi) = 0) by (apply Buffer.empty_length; auto).
     rewrite Hs in H; simpl in H.
     assert (Buffer.length (suffix lvlSi) <= 5) by (apply Buffer.bounded_length).    
-    destruct t0 ; simpl in * |- *; firstorder; discriminate.
-  Qed.    
-
-  Next Obligation.
-  Proof.
-    simpl in * |- *. 
-    assert (Hs: Buffer.length (suffix lvlSi) = 0) by (apply Buffer.empty_length; auto).
-    rewrite Hs in H; simpl in H.
-    assert (Buffer.length (prefix lvlSi) <= 5) by (apply Buffer.bounded_length).    
-    destruct t0 ; simpl in * |- *; firstorder; discriminate.
-  Qed.    
-
-  Next Obligation.
-  Proof.
-    destruct lvlSi; compute in ColorSi; compute ;
-    destruct prefix0, suffix0, is_last0 ; simpl in * ;
-    intro color_mismatch ; solve [
-      discriminate color_mismatch |
-      auto
+    destruct lvlSi; destruct prefix0, suffix0, is_last0; simpl in * ; try solve [
+      omega |
+      contradiction |
+      (right ;reflexivity) |
+      (left ; compute ; discriminate) |
+      (compute in ColorSi ; discriminate ColorSi)
     ].
   Qed.
 
   Next Obligation.
   Proof.
-    destruct lvlSi; compute in ColorSi; compute ;
-    destruct prefix0, suffix0, is_last0 ; simpl in * ;
-    intro color_mismatch ; solve [
-      discriminate color_mismatch |
-      auto
+    simpl in *.
+    assert (Hs: Buffer.length (prefix lvlSi) = 0) by (apply Buffer.empty_length; auto).
+    rewrite Hs in H; simpl in H.
+    assert (Buffer.length (suffix lvlSi) <= 5) by (apply Buffer.bounded_length).    
+    split.
+    - destruct t0 ; simpl in * ; discriminate || omega.
+    - intro.
+      destruct lvlSi ; destruct prefix0, suffix0, is_last0 ; simpl in * ;
+      solve [
+        omega | (right ; reflexivity) | (left ; compute ; discriminate)
+      ].
+  Qed.    
+
+  Next Obligation.
+  Proof.
+    simpl in *.
+    assert (Hs: Buffer.length (suffix lvlSi) = 0) by (apply Buffer.empty_length; auto).
+    rewrite Hs in H; simpl in H.
+    assert (Buffer.length (prefix lvlSi) <= 5) by (apply Buffer.bounded_length).    
+    split.
+    - destruct t0 ; simpl in * ; discriminate || omega.
+    - intro.
+      destruct lvlSi ; destruct prefix0, suffix0, is_last0 ; simpl in * ;
+      solve [
+        omega | (right ; reflexivity) | (left ; compute ; discriminate)
+      ].
+  Qed.    
+
+  Next Obligation.
+  Proof.
+    simpl in *.
+    split ; [ discriminate | intro ].
+    assert (Hs: Buffer.length (suffix lvlSi) = 0) by (apply Buffer.empty_length; auto).
+    rewrite Hs in H; simpl in H.
+    assert (Buffer.length (prefix lvlSi) <= 5) by (apply Buffer.bounded_length).    
+    destruct lvlSi ; destruct prefix0, suffix0, is_last0 ; simpl in * ; solve [
+      omega |
+      (right ; reflexivity) |
+      (left ; compute ; discriminate)
+    ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct lvlSi; compute in ColorSi |- * .
+    destruct prefix0, suffix0, is_last0 ; simpl in * ; solve [
+      auto with arith |
+      (split ; [ idtac | intro ; left ] ; intro F ; discriminate F)
+    ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct lvlSi; compute in ColorSi |- * ;
+    destruct prefix0, suffix0, is_last0 ; simpl in * ; solve [
+      auto with arith |
+      (split ; [ idtac | intro ; left ] ; intro F ; discriminate F)
     ].
   Qed.
 
@@ -235,29 +294,49 @@ Module Lvl.
   Qed.
 
   Next Obligation.
-  Proof. destruct pSi ; firstorder. Qed.
-
-  Next Obligation.
   Proof.
-    destruct lvli; destruct prefix0; compute; firstorder;
-    left ; intro Color_mismatch ; contradict Color_mismatch ; discriminate.
+    simpl in * ; apply o.
+    destruct buff3 ; simpl in * ; first [ omega | discriminate H0 | idtac ].
+    destruct pSi ; simpl in * ; omega || discriminate.
   Qed.
 
   Next Obligation.
   Proof.
-    left; clear Heq_anonymous1.
+    destruct pSi ; simpl in n ; solve [
+      (contradict n ; reflexivity) |
+      (compute ; trivial)
+    ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct lvli; destruct prefix0; simpl ; solve [
+      (right ; trivial) |
+      (left ; discriminate)
+    ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    simpl in * ; left.
     destruct (Buffer.length (prefix lvli)).
     + destruct buff ; simpl in Hbuff ; discriminate || discriminate Hbuff.
-    + assert (Hn : n = 0) by omega.
+    + assert (Hn : n0 = 0) by omega.
       destruct buff ; simpl in Hbuff ; discriminate || (exfalso ; omega).
   Qed.
 
   Next Obligation.
   Proof.
-    clear Heq_anonymous1; simpl in *.
+    simpl in *.
     destruct (Buffer.length (prefix lvli)) ; try omega ;
     rewrite Hbuff in Hbuff2 ;
     destruct buff2 ; simpl in * ; try omega ; reflexivity.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    simpl in *; apply o.
+    destruct pSi, t0 ; simpl in * ; omega || discriminate.
   Qed.
 
   Next Obligation.
@@ -274,29 +353,44 @@ Module Lvl.
   Qed.
 
   Next Obligation.
-  Proof. destruct sSi ; firstorder. Qed.
-
-  Next Obligation.
   Proof.
-    destruct lvli; destruct suffix0; compute; firstorder;
-    left ; intro Color_mismatch ; contradict Color_mismatch ; discriminate.
+    simpl in * ; apply o.
+    destruct sSi, buff2 ; simpl in * ; omega || discriminate.
   Qed.
 
   Next Obligation.
   Proof.
-    left; clear Heq_anonymous1.
-    destruct (Buffer.length (suffix lvli)).
-    + destruct buff ; simpl in Hbuff ; discriminate || discriminate Hbuff.
-    + assert (Hn : n = 0) by omega.
-      destruct buff ; simpl in Hbuff ; discriminate || (exfalso ; omega).
+    destruct sSi ; simpl in * ; solve [ (contradict n ; reflexivity) | auto ].
   Qed.
 
   Next Obligation.
   Proof.
-    clear Heq_anonymous1; simpl in *.
+    destruct (suffix lvli) ; simpl in * ; solve [
+      omega |
+      (left ; discriminate) |
+      (right ; trivial)
+    ].
+  Qed.
+
+  Next Obligation.
+  Proof.
+    left ; simpl in *.
+    destruct (Buffer.length (suffix lvli)), buff ; simpl in * ; omega || discriminate.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    simpl in *.
     destruct (Buffer.length (prefix lvli)) ; try omega ;
     rewrite Hbuff in Hbuff2 ;
     destruct buff2 ; simpl in * ; try omega ; reflexivity.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    simpl in * ; apply o.
+    destruct t0, sSi ; simpl in * ; try (omega || discriminate H0).
+    discriminate.
   Qed.
 
   Next Obligation.
@@ -306,9 +400,21 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-    destruct pi, si, (is_last lvli) ; simpl in H1, H0 ; first [
-      discriminate H0 | discriminate H1 | idtac
+    split ; [ idtac | reflexivity ].
+    destruct pi, si, (is_last lvli) ; simpl in H1, H3 ; first [
+      discriminate H3 | discriminate H1 | idtac
     ] ; simpl ; reflexivity.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    split ; [ idtac | reflexivity ].
+    intro Hcol ; destruct pSi0, sSi0 ; destruct (is_last lvlSi) eqn:Last ;
+    simpl in * ; solve [
+      (compute in Hcol ; discriminate Hcol) |
+      (apply H0 ; reflexivity) |
+      (apply H2 ; reflexivity)
+    ].
   Qed.
 
   (* A note on the hypotheses :
@@ -324,7 +430,9 @@ Module Lvl.
     (HSi : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) <= 1)
     (Hi : Buffer.length (prefix lvli) >= 2 \/ Buffer.length (suffix lvli) >= 2)
     (LastLvl : is_empty lvlSi -> is_last lvli = true)
-  : { bi : t A | color bi = Green } * t (A * A)
+    (Triviality : is_last lvli = true -> is_last lvlSi = true)
+  : { l : t A | color l = Green /\ is_last l = false } *
+    { l : t (A * A) | is_last l = is_last lvlSi }
   :=
     let pSi_sig :
       { b : Buffer.t (A * A) |
@@ -450,7 +558,7 @@ Module Lvl.
   Next Obligation.
   Proof.
     simpl in *.
-    destruct (Buffer.length (prefix lvli) ≥ 4) ; compute in H1 ; omega.
+    destruct (Buffer.length (prefix lvli) ≥ 4) ; simpl in * ; omega.
   Qed.
 
   Next Obligation.
@@ -528,7 +636,7 @@ Module Lvl.
       + exfalso ; omega.
       + contradict Colori.
         destruct lvli ; compute; simpl in *; try rewrite H6;
-        destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ; discriminate H7.
+        destruct prefix0, suffix0 ; intro ; simpl in * ; omega || discriminate H7.
     - auto with arith.
   Qed.
 
@@ -566,9 +674,22 @@ Module Lvl.
 
   Next Obligation.
   Proof.
+    split ; [ idtac | reflexivity ].
     destruct pi0, si; simpl in H1, H3 ; first [
       discriminate H1 | discriminate H3 | idtac
     ] ; simpl ; reflexivity.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    destruct lvlSi ; destruct prefix0, suffix0, is_last0 ; simpl in * ;
+    try solve [
+      omega |
+      reflexivity |
+      (symmetry; apply Triviality; apply LastLvl; compute ; tauto) |
+      (compute in ColorSi ; destruct ColorSi as [ Hfalse | Hfalse ] ;
+          exfalso ; apply Hfalse ; reflexivity)
+    ].
   Qed.
 
   Program Definition no_buffer_case {A : Set}
@@ -578,7 +699,7 @@ Module Lvl.
     (ColorSi : color lvlSi <> Red)
     (Hi : Buffer.length (prefix lvli) <= 1 /\ Buffer.length (suffix lvli) <= 1)
     (HSi : (Buffer.length (prefix lvlSi)) + (Buffer.length (suffix lvlSi)) <= 1)
-  : { b : t A | color b = Green }
+  : { b : t A | color b = Green /\ is_last b = true }
   :=
     let pi_sig : {
         b : Buffer.t A | Buffer.length b = 2 + Buffer.length (prefix lvli)
@@ -668,17 +789,34 @@ Module Lvl.
     (Colori : color lvli = Red)
     (ColorSi : color lvlSi <> Red \/ is_empty lvlSi)
     (Last : is_empty lvlSi -> is_last lvli = true)
+    (Triviality : is_last lvli = true -> is_last lvlSi = true)
     (Has_elements : ~ (is_empty lvli /\ is_empty lvlSi))
-  : { lvl : t A | color lvl = Green } * t (A * A)
+  : (
+      { lvl : t A | color lvl = Green /\ is_last lvl = false} *
+      { lSi : t (A * A)
+          | (color lSi = Red -> color lvlSi <> Green \/ is_last lvlSi = true)
+            /\ is_last lSi = is_last lvlSi
+      }
+    ) +
+    ( 
+      { l : t A | color l = Green /\ is_last l = true /\ is_last lvlSi = true }
+    )
   :=
     match Buffer.length (prefix lvlSi) + Buffer.length (suffix lvlSi) ≥ 2 with
-    | left H => two_buffer_case lvli lvlSi Colori _ _
+    | left H => inl (two_buffer_case lvli lvlSi Colori _ _)
     | right _ =>
       match Buffer.length (prefix lvli) ≥ 2, Buffer.length (suffix lvli) ≥ 2 with
       | left _, _
-      | _, left _ => one_buffer_case lvli lvlSi Colori ColorSi _ _ _
+      | _, left _ =>
+        let '(lvli_sig, lvlSi_sig) :=
+          one_buffer_case lvli lvlSi Colori ColorSi _ _ _ _
+        in
+        let (lvli, Hlvli) := lvli_sig in
+        let (lvlSi, HlvlSi) := lvlSi_sig in
+        inl (lvli, lvlSi)
       | right _, right _ =>
-        (no_buffer_case lvli lvlSi Colori _ _ _, empty (A * A))
+        let (lvli, Hlvli) := no_buffer_case lvli lvlSi Colori _ _ _ in
+        inr lvli
       end
     end.
 
@@ -688,6 +826,29 @@ Module Lvl.
     + assumption.
     + unfold is_empty in H0 ; rewrite <- 2 Buffer.empty_length in H0.
       omega.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    clear Heq_anonymous2 ; split.
+    - intro HN ; clear HN ; left ; simpl in *.
+      destruct lvlSi ; destruct prefix0, suffix0, is_last0 ; simpl in * ;
+      try solve [
+        omega |
+        (compute ; discriminate)
+      ].
+    - reflexivity.
+  Qed.
+
+  Next Obligation.
+  Proof.
+    clear Heq_anonymous2 ; split ; [ idtac | reflexivity ].
+    intro HN ; clear HN ; left ; simpl in *.
+    destruct lvlSi ; destruct prefix0, suffix0, is_last0 ; simpl in * ;
+    solve [
+      omega |
+      (compute ; discriminate)
+    ].
   Qed.
 
   Next Obligation.
@@ -712,6 +873,20 @@ Module Lvl.
         * contradict Hempty_fail ; compute ; firstorder.
   Qed.
 
+  Next Obligation.
+  Proof.
+    split ; [ .. | split ] ; auto.
+    destruct lvlSi ; destruct prefix0, suffix0, is_last0 ; simpl in * ;
+    try solve [
+      omega |
+      reflexivity |
+      (compute in ColorSi ; destruct ColorSi as [ Hfalse | Hfalse ] ; [
+          (exfalso ; apply Hfalse ; reflexivity) |
+          (apply Triviality ; apply Last ; compute ; tauto)
+        ])
+    ].
+  Qed.
+
 End Lvl.
 
 Module Stack.
@@ -726,6 +901,14 @@ Module Stack.
     match stack with
     | Nil _ => True
     | _ => False
+    end.
+
+  Fixpoint is_last_coherence {A B : Set} (s : t A B) (is_last : bool) : Prop :=
+    match s with
+    | Nil _ => True
+    | Cons _ _ lvl (Nil _) => Lvl.is_last lvl = is_last
+    | Cons _ _ lvl rest    =>
+      Lvl.is_last lvl = false /\ is_last_coherence rest is_last
     end.
 
   Fixpoint all_yellows {A B : Set} (s : t A B) : Prop :=
@@ -805,8 +988,9 @@ Qed.
 
 Fixpoint semi_regular {A : Set} (d : t A) : Prop :=
   match d with
-  | ∅ | _ ++ ∅ => True
-  | _ ++ stacks =>
+  | ∅ => True
+  | top ++ ∅ => S.is_last_coherence top true
+  | top ++ stacks =>
     let green_before_red :=
       match color d with
       | Red => color stacks = Green
@@ -814,8 +998,20 @@ Fixpoint semi_regular {A : Set} (d : t A) : Prop :=
       | Yellow => False
       end
     in
-    semi_regular stacks /\ green_before_red
+    semi_regular stacks /\ green_before_red /\ S.is_last_coherence top false
   end.
+
+Theorem semi_regular_ind :
+  forall A B,
+  forall top_stack : S.t A B, forall wf_p,
+  forall deque : t B,
+  semi_regular (Cons top_stack wf_p deque) -> semi_regular deque.
+Proof.
+  intros ; simpl in H.
+  destruct deque0 ; [ (simpl ; auto) | .. ].
+  destruct H as [ H _ ].
+  exact H.
+Qed.
 
 Definition strongly_regular {A : Set} (d : t A) : Prop :=
   match d with
@@ -884,12 +1080,14 @@ Inductive regularisation_cases (A : Set) : t A -> Type :=
   | one_level_case :
     forall lvli : Lvl.t A,
     forall wf_p : S.well_formed (lvli ::: []),
+    forall last : Lvl.is_last lvli = true,
     regularisation_cases A (Cons (lvli ::: []) wf_p ∅)
   | general_case1 :
     forall B : Set,
     forall lvli lvlSi yellows,
     forall rest : t B,
     forall wf_p : S.well_formed (lvli ::: lvlSi ::: yellows),
+    forall not_last : Lvl.is_last lvli = false,
     regularisation_cases A (Cons (lvli ::: lvlSi ::: yellows) wf_p rest)
   | general_case2 :
     forall B : Set,
@@ -897,6 +1095,7 @@ Inductive regularisation_cases (A : Set) : t A -> Type :=
     forall rest : t B,
     forall wftop_p : S.well_formed (lvli ::: []),
     forall wfsnd_p : S.well_formed (lvlSi ::: yellows),
+    forall not_last : Lvl.is_last lvli = false,
     regularisation_cases A
       (Cons (lvli ::: []) wftop_p
         (Cons (lvlSi ::: yellows) wfsnd_p rest)).
@@ -906,16 +1105,287 @@ Parameter dispatch :
   forall d : t A,
   regularisation_cases A d.
 
-Program Definition regularize {A : Set} (d : t A)
-  (Hsr : semi_regular d) (Color : color d = Red) : t A :=
+(* TODO: move in Lvl *)
+Definition set_last {A} (l : Lvl.t A) bool :=
+  Lvl.makeLvl (Lvl.prefix l) (Lvl.suffix l) bool.
+
+Program Definition do_regularize {A : Set}
+  (d : t A)
+  (Hsr : semi_regular d)
+  (Color : color d = Red)
+  (NotEmpty : ~ is_empty d)
+: { d : t A | strongly_regular d }
+:=
   match dispatch A d with
   | empty_case => ∅
-  | one_level_case lvli _ => d
-  | general_case1 _B lvli lvlSi yellows rest _
-  | general_case2 _B lvli lvlSi yellows rest _ _ =>
-    d
+  | one_level_case lvli _ _ =>
+    if Lvl.dec_is_empty lvli then ! (* by NotEmpty *) else
+    let lvlSi := Lvl.empty (A * A) in
+    let pair :
+      {l : Lvl.t A | Lvl.color l = Green /\ Lvl.is_last l = false} *
+      {l : Lvl.t (A * A) | Lvl.is_last l = Lvl.is_last lvlSi}
+    :=
+      Lvl.one_buffer_case lvli lvlSi _ _ _ _ _ _
+    in
+    let (lvli, lvlSi) := pair in
+    match Lvl.color lvlSi with
+    | Yellow => lvli ::: lvlSi ::: [] ++ ∅
+    | _ =>
+      if Lvl.dec_is_empty lvlSi
+        then (set_last lvli true) ::: [] ++ ∅
+        else lvli ::: [] ++ lvlSi ::: [] ++ ∅
+    end
+  | general_case1 _B lvli lvlSi yellows rest _ _
+  | general_case2 _B lvli lvlSi yellows rest _ _ _ =>
+    match Lvl.equilibrate lvli lvlSi _ _ _ _ _ with
+    | inl p =>
+        (*
+    let pair :
+      { l : Lvl.t A | Lvl.color l = Green } *
+      { lSi : Lvl.t (A * A)
+          | Lvl.color lSi = Red -> Lvl.color lvlSi <> Green \/ Lvl.is_last lvlSi = true
+      }
+    :=
+      Lvl.equilibrate lvli lvlSi _ _ _ _
+    in
+    *)
+      let (lvli', lvlSi'_sig) := p in
+      let (lvlSi', HlvlSi') := lvlSi'_sig in
+      match Lvl.color lvlSi' with
+      | Yellow => lvli' ::: lvlSi' ::: yellows ++ rest
+      | _ =>
+        match Lvl.dec_is_empty lvlSi', Lvl.is_last lvlSi with
+        | left HeSi, true =>
+          (set_last lvli' true) ::: [] ++ ∅
+        | _, _ => lvli' ::: [] ++ lvlSi' ::: yellows ++ rest
+        end
+      end
+    | inr lvl_sig =>
+      let (lvl, Hlvl) := lvl_sig in
+      lvl ::: [] ++ ∅
+    end
   end.
 
-Admit Obligations.
-(* Error: Anomaly: Uncaught exception Type_errors.TypeError(_, _).
- *        Please report. *)
+Next Obligation.
+Proof. right ; compute ; tauto. Qed.
+
+Next Obligation.
+Proof.
+  simpl in Color.
+  destruct lvli ; destruct prefix, suffix, is_last ; solve [
+    (simpl ; omega) |
+    (compute in Color ; discriminate Color) |
+    (compute in H ; exfalso ; apply H ; tauto) |
+    (simpl in wildcard'0 ; discriminate wildcard'0)
+  ].
+Qed.
+
+Next Obligation.
+Proof. rewrite e ; split ; assumption. Qed.
+
+Lemma color_preservation :
+  forall {A}, forall lvl:Lvl.t A,
+    Lvl.color lvl <> Red -> Lvl.color (set_last lvl true) = Lvl.color lvl.
+Proof.
+  intros.
+  destruct lvl ; destruct prefix, suffix, is_last ; compute in H |- * ;
+  reflexivity || (exfalso ; apply H ; reflexivity).
+Qed.
+
+Next Obligation.
+Proof.
+  rewrite color_preservation ; rewrite e ; [ trivial | discriminate ].
+Qed.
+
+Next Obligation.
+Proof. rewrite e ; tauto. Qed.
+
+Next Obligation.
+Proof.
+  left ; dependent destruction yellows ; [ idtac | destruct wildcard' ] ;
+  congruence.
+Qed.
+
+Next Obligation.
+Proof.
+  dependent destruction yellows; [ idtac | destruct wildcard' as [ wildcard' ]];
+  destruct lvlSi ; destruct prefix, suffix, is_last ; compute in H, wildcard' ;
+  solve [
+    discriminate wildcard' |
+    (destruct H ; contradiction)
+  ].
+Qed.
+
+Next Obligation.
+Proof. congruence. Qed.
+
+Next Obligation.
+Proof.
+  assert (ColSiY : Lvl.color lvlSi = Yellow) by
+    (dependent destruction yellows ; try destruct wildcard' ; assumption).
+  intuition.
+  destruct lvlSi ; destruct prefix, suffix, is_last ;
+  compute in ColSiY, H1 ; destruct H1 ; solve [
+    assumption |
+    discriminate ColSiY
+  ].
+Qed.
+
+Next Obligation.
+Proof.
+  dependent destruction yellows ; intuition.
+  destruct wildcard' ; assumption.
+Qed.
+
+Next Obligation.
+Proof.
+  clear Heq_anonymous0.
+  rewrite e, H0.
+  destruct rest ; intuition.
+  - dependent destruction yellows ; destruct Hsr as [ _ Hlastco ] ;
+    simpl in Hlastco ; assumption.
+  - apply semi_regular_ind in Hsr ; assumption.
+  - destruct Hsr as [ _ Htop ] ; destruct Htop as [ _ Hlastco ].
+    simpl in Hlastco.
+    destruct Hlastco ; assumption.
+Qed.
+
+Next Obligation.
+Proof.
+  clear Heq_anonymous0.
+  rewrite color_preservation.
+  - rewrite e ; trivial.
+  - congruence.
+Qed.
+
+Next Obligation.
+Proof.
+  dependent destruction yellows.
+  - simpl; trivial.
+  - destruct wildcard' ; assumption.
+Qed.
+
+Next Obligation.
+Proof.
+  clear Heq_anonymous0.
+  rewrite e, H2 ; intuition.
+  destruct rest.
+  - destruct Hsr as [ _ Hlastco ].
+    simpl in Hlastco ; assumption.
+  - split ; [ idtac | split ].
+    + apply semi_regular_ind in Hsr.
+      assumption.
+    + destruct (Lvl.color lvlSi').
+      * trivial.
+      * apply H ; reflexivity.
+      * unfold semi_regular in Hsr.
+        destruct Hsr as [ _ Hsr ].
+        destruct Hsr as [ Hsr _ ].
+        rewrite Color in Hsr.
+        assumption.
+    + destruct Hsr as [ _ Hsr ].
+      destruct Hsr as [ _ Hsr ].
+      simpl in Hsr.
+      destruct Hsr as [ _ Hsr ].
+      assumption.
+Qed.
+
+Next Obligation.
+Proof. rewrite H ; trivial. Qed.
+
+Next Obligation.
+Proof.
+  left ; simpl in Color.
+  simpl in Hsr ; destruct Hsr as [ _ H ].
+  rewrite Color in H ; destruct H.
+  congruence.
+Qed.
+
+Next Obligation.
+Proof.
+  simpl in Color.
+  assert (ColorSi : Lvl.color lvlSi = Red) by
+    (destruct lvlSi ; destruct prefix, suffix, is_last ; compute in H |- *;
+      firstorder).
+  simpl in Hsr ; destruct Hsr as [ _ ColorSi' ] ; rewrite Color in ColorSi'.
+  destruct ColorSi' ; congruence.
+Qed.
+
+Next Obligation.
+Proof. congruence. Qed.
+
+Next Obligation.
+Proof.
+  simpl in Color.
+  simpl in Hsr ; destruct Hsr as [ _ ColorSi ]; rewrite Color in ColorSi.
+  intro Htmp ; destruct Htmp as [ _ Hempty ].
+  destruct ColorSi as [ ColorSi _ ].
+  destruct lvlSi ; destruct prefix, suffix, is_last ;
+  compute in ColorSi, Hempty ; destruct Hempty ; solve [
+    discriminate ColorSi |
+    assumption
+  ].
+Qed.
+
+Next Obligation.
+Proof.
+  dependent destruction yellows.
+  - symmetry ; assumption.
+  - split ; auto.
+Qed.
+
+Next Obligation.
+Proof.
+  clear Heq_anonymous0.
+  rewrite e, H0.
+  destruct rest ; intuition.
+  - destruct Hsr as [ Hsr _ ].
+    dependent destruction yellows.
+    + simpl in Hsr ; assumption.
+    + destruct Hsr ; split ; assumption.
+  - do 2 apply semi_regular_ind in Hsr ; assumption.
+  - destruct Hsr as [ Hsr _ ].
+    destruct Hsr as [ _ Hsr ].
+    destruct Hsr as [ _ Hlastco ].
+    simpl in Hlastco ; assumption.
+Qed.
+
+Next Obligation.
+Proof.
+  clear Heq_anonymous0.
+  rewrite color_preservation.
+  - rewrite e; trivial.
+  - congruence.
+Qed.
+
+Next Obligation.
+Proof.
+  clear Heq_anonymous0.
+  rewrite e, H2 ; destruct rest ; intuition.
+  - destruct Hsr as [ Hsr _ ].
+    simpl in Hsr ; assumption.
+  - do 2 apply semi_regular_ind in Hsr. assumption.
+  - destruct (Lvl.color lvlSi') eqn:ColorSi'.
+    + trivial.
+    + apply H ; reflexivity.
+    + unfold semi_regular in Hsr.
+      destruct Hsr as [ Hsr' Hsr ].
+      rewrite Color in Hsr.
+      assert (trivial : Red = Red) by reflexivity.
+      apply H1 in trivial.
+      destruct trivial.
+      * simpl in Hsr.
+        exfalso ; apply H5.
+        destruct Hsr as [ Hsr _ ] ; exact Hsr.
+      * clear Hsr ; destruct Hsr' as [ _ Hsr ].
+        destruct Hsr as [ _ Hlastco ].
+        simpl in Hlastco.
+        dependent destruction yellows ; [ .. | destruct Hlastco ] ; congruence.
+  - destruct Hsr as [ Hsr _ ].
+    destruct Hsr as [ _ Hlastco ].
+    destruct Hlastco as [ _ Hlastco ].
+    simpl in Hlastco ; assumption.
+Qed.
+
+Next Obligation.
+Proof. rewrite H ; trivial. Qed.
