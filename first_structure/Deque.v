@@ -805,7 +805,7 @@ Qed.
 
 Fixpoint semi_regular {A : Set} (d : t A) : Prop :=
   match d with
-  | ∅ => True
+  | ∅ | _ ++ ∅ => True
   | _ ++ stacks =>
     let green_before_red :=
       match color d with
