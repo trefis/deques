@@ -863,6 +863,22 @@ Program Definition empty (A : Set) : { d : t A | regular d } :=
 Next Obligation.
 Proof. compute ; tauto. Qed.
 
+Definition is_empty {A} (d : t A) :=
+  match d with
+  | lvl ::: [] ++ ∅ => Lvl.is_empty lvl
+  | _ => False
+  end.
+
+Definition dec_is_empty {A} (d : t A) : { is_empty d } + { ~ is_empty d }.
+  destruct d.
+  - right ; auto.
+  - destruct s.
+    + contradict w ; simpl.
+    + dependent destruction s.
+      * destruct (Lvl.dec_is_empty t0), d ; firstorder.
+      * right ; auto.
+Qed.
+
 Inductive regularisation_cases (A : Set) : t A -> Type :=
   | empty_case : regularisation_cases A ∅
   | one_level_case :
