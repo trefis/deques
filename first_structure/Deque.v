@@ -1100,10 +1100,25 @@ Inductive regularisation_cases (A : Set) : t A -> Type :=
       (Cons (lvli ::: []) wftop_p
         (Cons (lvlSi ::: yellows) wfsnd_p rest)).
 
-Parameter dispatch :
-  forall A : Set,
-  forall d : t A,
-  regularisation_cases A d.
+Definition dispatch (A : Set) (d : t A) (Hsr : semi_regular d) : regularisation_cases A d.
+Proof.
+  destruct d ; [ constructor | .. ]. (* empty case *)
+  destruct s ; [ contradiction | .. ].
+  dependent destruction s.
+  - destruct d.
+    + constructor. (* one_level_case *)
+      simpl in Hsr ; assumption.
+    + dependent destruction s ; [ contradiction | .. ].
+      constructor. (* general_case2 *)
+      destruct Hsr as [ _ Hlastcol ].
+      destruct Hlastcol as [ _ Hlastcol ].
+      simpl in Hlastcol ; assumption.
+  - constructor. (* general_case1 *)
+    destruct d ; simpl in Hsr.
+    * destruct Hsr ; assumption.
+    * do 2 destruct Hsr as [ _ Hsr ].
+      destruct Hsr ; assumption.
+Qed.
 
 (* TODO: move in Lvl *)
 Definition set_last {A} (l : Lvl.t A) bool :=
@@ -1116,7 +1131,7 @@ Program Definition do_regularize {A : Set}
   (NotEmpty : ~ is_empty d)
 : { d : t A | strongly_regular d }
 :=
-  match dispatch A d with
+  match dispatch A d Hsr with
   | empty_case => ∅
   | one_level_case lvli _ _ =>
     if Lvl.dec_is_empty lvli then ! (* by NotEmpty *) else
@@ -1139,16 +1154,6 @@ Program Definition do_regularize {A : Set}
   | general_case2 _B lvli lvlSi yellows rest _ _ _ =>
     match Lvl.equilibrate lvli lvlSi _ _ _ _ _ with
     | inl p =>
-        (*
-    let pair :
-      { l : Lvl.t A | Lvl.color l = Green } *
-      { lSi : Lvl.t (A * A)
-          | Lvl.color lSi = Red -> Lvl.color lvlSi <> Green \/ Lvl.is_last lvlSi = true
-      }
-    :=
-      Lvl.equilibrate lvli lvlSi _ _ _ _
-    in
-    *)
       let (lvli', lvlSi'_sig) := p in
       let (lvlSi', HlvlSi') := lvlSi'_sig in
       match Lvl.color lvlSi' with
@@ -1240,6 +1245,7 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0.
+  clear Heq_anonymous.
   rewrite e, H0.
   destruct rest ; intuition.
   - dependent destruction yellows ; destruct Hsr as [ _ Hlastco ] ;
@@ -1268,6 +1274,7 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0.
+  clear Heq_anonymous.
   rewrite e, H2 ; intuition.
   destruct rest.
   - destruct Hsr as [ _ Hlastco ].
@@ -1295,6 +1302,7 @@ Proof. rewrite H ; trivial. Qed.
 
 Next Obligation.
 Proof.
+  clear Heq_anonymous.
   left ; simpl in Color.
   simpl in Hsr ; destruct Hsr as [ _ H ].
   rewrite Color in H ; destruct H.
@@ -1303,6 +1311,7 @@ Qed.
 
 Next Obligation.
 Proof.
+  clear Heq_anonymous.
   simpl in Color.
   assert (ColorSi : Lvl.color lvlSi = Red) by
     (destruct lvlSi ; destruct prefix, suffix, is_last ; compute in H |- *;
@@ -1316,6 +1325,7 @@ Proof. congruence. Qed.
 
 Next Obligation.
 Proof.
+  clear Heq_anonymous.
   simpl in Color.
   simpl in Hsr ; destruct Hsr as [ _ ColorSi ]; rewrite Color in ColorSi.
   intro Htmp ; destruct Htmp as [ _ Hempty ].
@@ -1337,6 +1347,7 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0.
+  clear Heq_anonymous.
   rewrite e, H0.
   destruct rest ; intuition.
   - destruct Hsr as [ Hsr _ ].
@@ -1361,6 +1372,7 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0.
+  clear Heq_anonymous.
   rewrite e, H2 ; destruct rest ; intuition.
   - destruct Hsr as [ Hsr _ ].
     simpl in Hsr ; assumption.
