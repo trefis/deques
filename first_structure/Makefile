@@ -4,7 +4,7 @@ Misc.vo: Misc.v
 Buffer.vo: Buffer.v Misc.vo
 	coqc Buffer.v
 
-Deque.vo: Deque.v Misc.vo Level.vo
+Deque.vo: Deque.v Misc.vo Buffer.vo
 	coqc Deque.v
 
 extract: Extractor.v Deque.vo
