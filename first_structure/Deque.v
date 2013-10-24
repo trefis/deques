@@ -527,8 +527,12 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-    simpl in *.
-    destruct pSi ; simpl in * ; firstorder ; left ; discriminate.
+    simpl in * ;
+    destruct pSi ; simpl in * ; try solve [
+      (right ; trivial) |
+      (left ; discriminate)
+    ] ;
+    omega.
   Qed.
 
   Next Obligation.
@@ -540,8 +544,8 @@ Module Lvl.
 
   Next Obligation.
   Proof.
-    destruct pSi0 ; simpl in * ; firstorder ; solve [
-      (left ; discriminate) |
+    destruct pSi0 ; simpl in * ; try solve [ (left ; discriminate) ] ; [
+      (right ; trivial) |
       (destruct (Buffer.length (prefix lvli) ≥ 4) ; omega)
     ].
   Qed.
@@ -572,8 +576,9 @@ Module Lvl.
     contradict Colori.
     - destruct lvli; compute; simpl in *.
       rewrite H7 ; simpl.
-      destruct prefix0, suffix0 ; intro ; simpl in * ; firstorder ;
-      discriminate H6.
+      destruct prefix0, suffix0 ; intro ; simpl in * ; solve [
+        discriminate H6 | omega
+      ].
     - assert (trivial : n0 = 0) by omega; subst.
       destruct lvli; compute; simpl in *.
       destruct prefix0, suffix0 ; intro ; simpl in * ; auto ;
