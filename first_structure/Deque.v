@@ -1406,3 +1406,144 @@ Qed.
 
 Next Obligation.
 Proof. rewrite H ; trivial. Qed.
+
+Program Definition regularize {A : Set} (d : t A) (Hsr : semi_regular d) :
+  { d : t A | regular d }
+:=
+  match color d with
+  | Green => d
+  | Yellow =>
+    match d with
+    | ∅ => !
+    | top ++ stacks =>
+      match color stacks with
+      | Green => d
+      | Yellow => !
+      | Red =>
+        match dec_is_empty stacks with
+        | left _ => top ++ ∅
+        | right _ =>
+          let stacks' := do_regularize stacks _ _ _ in
+          top ++ stacks'
+        end
+      end
+    end
+  | Red =>
+    match dec_is_empty d with
+    | left _ => d
+    | right _ => do_regularize d _ _ _
+    end
+  end.
+
+Next Obligation.
+Proof.
+  destruct d.
+  + simpl in Heq_anonymous. discriminate Heq_anonymous.
+  + simpl in *.
+    rewrite <- Heq_anonymous.
+    rewrite <- Heq_anonymous in Hsr.
+    exact Hsr.
+Qed.
+
+Next Obligation.
+Proof.
+  simpl in Heq_anonymous |- *.
+  rewrite <- Heq_anonymous.
+  apply semi_regular_ind in Hsr.
+  destruct stacks.
+  + simpl in Heq_anonymous0. discriminate Heq_anonymous0.
+  + simpl in *.
+    rewrite <- Heq_anonymous0.
+    rewrite <- Heq_anonymous0 in Hsr.
+    exact Hsr.
+Qed.
+
+Next Obligation.
+Proof.
+  simpl in *.
+  rewrite <- Heq_anonymous in Hsr.
+  destruct stacks.
+  + simpl in Heq_anonymous0. discriminate Heq_anonymous0.
+  + destruct Hsr as [ _ Hsr ].
+    destruct Hsr as [ F _ ].
+    exact F.
+Qed.
+
+Next Obligation.
+Restart.
+  intros.
+  unfold regular.
+  destruct (color (top ++ ∅)) eqn:Hcol.
+  - subst filtered_var.
+    subst d.
+    destruct top ; simpl in *.
+    + trivial.
+    + congruence.
+  - simpl ; trivial.
+  - subst filtered_var.
+    subst d.
+    destruct top ; simpl in *.
+    + trivial.
+    + congruence.
+Qed.
+
+Next Obligation.
+Proof.
+  apply semi_regular_ind in Hsr.
+  exact Hsr.
+Qed.
+
+Lemma strongly_regular_proj1_do_reg :
+  forall A, forall d : deque A,
+  forall p1 : semi_regular d,
+  forall p2 : color d = Red,
+  forall p3 : ~ is_empty d,
+    strongly_regular (` (do_regularize d p1 p2 p3)).
+Proof.
+  intros.
+  remember (do_regularize d p1 p2 p3).
+  exact (proj2_sig s).
+Qed.
+
+Next Obligation.
+Proof.
+  destruct top.
+  - exfalso ; apply wildcard'0.
+  - simpl in Heq_anonymous.
+    dependent rewrite <- Heq_anonymous.
+    apply strongly_regular_proj1_do_reg.
+Qed.
+
+Next Obligation.
+Proof.
+  destruct d ; auto.
+  simpl.
+  destruct s.
+  + exfalso ; apply wildcard'.
+  + simpl in Heq_anonymous.
+    rewrite <- Heq_anonymous.
+    destruct d ; simpl in * ; dependent destruction s ; auto.
+Qed.
+
+Lemma strongr_impl_r :
+  forall A, forall d : t A, strongly_regular d -> regular d.
+Proof.
+  intros.
+  destruct d ; auto.
+  destruct s.
+  - firstorder.
+  - simpl in *.
+    destruct (Lvl.color t0).
+    + assumption.
+    + destruct d ; simpl ; auto.
+      destruct H as [ _ H ].
+      destruct H as [ H _ ].
+      exfalso ; exact H.
+    + exfalso ; exact H.
+Qed.
+
+Next Obligation.
+Proof.
+  apply strongr_impl_r.
+  apply strongly_regular_proj1_do_reg.
+Qed.
