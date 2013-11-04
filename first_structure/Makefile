@@ -23,7 +23,7 @@ refresh: Misc.vo Buffer.vo Level.vo Stack.vo
 clean:
 	rm *.vo
 	rm *.glob
-	rm deque.ml
-	rm deque.mli
+	rm *.ml
+	rm *.mli
 
 .PHONY: refresh clean all extract

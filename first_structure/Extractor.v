@@ -1,5 +1,7 @@
 Require Misc.
+Require Buffer.
 Require Level.
+Require Stack.
 Require Deque.
 
 Set Extraction AccessOpaque.
@@ -7,4 +9,4 @@ Set Extraction AccessOpaque.
 Extract Inductive sumbool => "bool" [ "true" "false" ].
 Extract Inductive prod => "( * )"  [ "(, )" ].
 
-Extraction "deque" Deque.Make.
+Recursive Extraction Library Deque.
