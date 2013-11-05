@@ -70,20 +70,86 @@ Program Definition inject {A : Set} (x : A) (t : t A) (is_last : bool)
   else
     makeLvl (prefix t) (Buffer.inject x (suffix t)).
 
+Ltac helper_pop_eject :=
+  match goal with
+  | [ P : ~ is_empty ?lvl,
+      H : Buffer.is_empty (?X ?lvl)
+      |- ~ Buffer.is_empty (?Y ?lvl)
+    ] =>
+      destruct lvl as [ prefix0 suffix0 ] ;
+      destruct prefix0 ; try (exfalso ; exact H) ;
+      destruct suffix0 ; auto || compute in P ; auto
+  end.
+
+Local Obligation Tactic := (program_simpl ; helper_pop_eject).
+
+Program Definition pop {A} (lvl : t A) (proof : ~ is_empty lvl) :=
+  if Buffer.dec_is_empty (prefix lvl) then
+    let (pair, H) := Buffer.pop (suffix lvl) in
+    let (elt, buffer) := pair in
+    (elt, makeLvl buffer Buffer.Zero)
+  else
+    let (pair, H) := Buffer.pop (prefix lvl) in
+    let (elt, buffer) := pair in
+    (elt, makeLvl buffer (suffix lvl)).
+
+Program Definition eject {A} (lvl : t A) (proof : ~ is_empty lvl) :=
+  if Buffer.dec_is_empty (suffix lvl) then
+    let (pair, H) := Buffer.eject (prefix lvl) in
+    let (elt, buffer) := pair in
+    (elt, makeLvl buffer Buffer.Zero)
+  else
+    let (pair, H) := Buffer.eject (suffix lvl) in
+    let (elt, buffer) := pair in
+    (elt, makeLvl (prefix lvl) buffer).
+
+Ltac helper_theorems :=
+  match goal with
+  | [ p : color ?t0 ?is_last <> Red \/ is_empty ?t0,
+      H : color (?push_or_inject ?x ?t0 ?is_last ?p) ?is_last = Red
+      |- color ?t0 ?is_last <> Green
+    ] =>
+      destruct t0 as [ prefix0 suffix0 ], is_last ;
+      destruct prefix0, suffix0 ; compute in * ;
+      firstorder ; solve [
+        discriminate H | discriminate H0 |
+        (clear H ; destruct p as [ H1 | H1 ]  ; exfalso ; [ 
+          (apply H1 ; reflexivity) | (destruct H1 ; assumption)
+        ])
+      ]
+  | [ p : ~ is_empty ?t0,
+      H : color (snd (?pop_or_eject ?t0 ?p)) ?is_last = Red
+      |- color ?t0 ?is_last <> Green
+    ] =>
+      destruct t0 as [ prefix0 suffix0 ], is_last ;
+      destruct prefix0, suffix0 ; compute in * ; firstorder ; solve [
+        discriminate H | discriminate H0
+      ]
+  end.
+
 Theorem red_push_iff_yellow :
   forall A x is_last, forall t : t A,
   forall p : color t is_last <> Red \/ is_empty t,
     color (push x t is_last p) is_last = Red -> color t is_last <> Green.
-Proof.
-  intros.
-  destruct t0, is_last ; destruct prefix0, suffix0 ; compute in * ;
-  firstorder ; solve [
-    discriminate H | discriminate H0 |
-    (clear H ; destruct p as [ H1 | H1 ]  ; exfalso ; [ 
-      (apply H1 ; reflexivity) | (destruct H1 ; assumption)
-    ])
-  ].
-Qed.
+Proof. intros ; helper_theorems. Qed.
+
+Theorem red_inject_iff_not_green :
+  forall A x is_last, forall t : t A,
+  forall p : color t is_last <> Red \/ is_empty t,
+    color (inject x t is_last p) is_last = Red -> color t is_last <> Green.
+Proof. intros ; helper_theorems. Qed.
+
+Theorem red_pop_iff_not_green :
+  forall A is_last, forall t : t A,
+  forall p : ~ is_empty t,
+    color (snd (pop t p)) is_last = Red -> color t is_last <> Green.
+Proof. intros ; helper_theorems. Qed.
+
+Theorem red_eject_iff_not_green :
+  forall A is_last, forall t : t A,
+  forall p : ~ is_empty t,
+    color (snd (eject t p)) is_last = Red -> color t is_last <> Green.
+Proof. intros ; helper_theorems. Qed.
 
 Definition empty (A : Set) := makeLvl (A := A) Buffer.Zero Buffer.Zero.
 
@@ -91,12 +157,15 @@ Notation "x ≥ y" := (ge_dec x y) (at level 70, right associativity).
 
 Require Import Omega.
 
-Obligation Tactic := (program_simpl;
-    try (
+Local Obligation Tactic := (
+  program_simpl; (* Basic program work *)
+  try solve [
+    (* We don't want any modification if it doesn't kill the obligation. *)
       (simpl in * |- *; apply Buffer.nonempty_length; omega)
-    || (left; congruence)
-    || (try split ; omega)
-    )).
+    | (left; congruence)
+    | (try split ; omega)
+  ]
+).
 
 Program Definition two_buffer_case {A}
   (lvli : t A)
