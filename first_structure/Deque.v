@@ -39,7 +39,7 @@ Proof.
   destruct s ; [ (exfalso ; assumption) | .. ].
   dependent destruction s ; simpl ; [ .. | (right ; auto) ].
   apply Level.dec_is_empty.
-Qed.
+Defined.
 
 Fixpoint green_between_reds {A} (d : deque A) : Prop :=
   match d with
@@ -125,7 +125,7 @@ Proof.
   dependent destruction s ; try constructor.
   destruct d ; dependent destruction s ; try (exfalso ; assumption) ;
   constructor.
-Qed.
+Defined.
 
 Program Definition do_regularize {A} (d : deque A) (Hsr : semi_regular d)
   (Color : color d = Red) (Hempty : ~ is_empty d)

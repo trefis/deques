@@ -38,7 +38,7 @@ Proof.
   + dependent destruction s ; simpl.
     - apply Level.dec_is_empty.
     - right ; auto.
-Qed.
+Defined.
 
 Program Definition empty (A : Set) :
   { s : t A (A * A) | well_formed s false /\ is_empty s } :=
