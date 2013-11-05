@@ -35,6 +35,27 @@ Definition dec_is_empty {A : Set} (lvl : t A) :
   destruct lvl ; destruct prefix0, suffix0 ; firstorder.
 Defined.
 
+Ltac helper_push_inject :=
+  match goal with
+  | [ Proof : color ?t0 ?is_last <> Red \/ is_empty ?t0 ,
+      H : Buffer.is_empty (prefix ?t0)
+      |- Buffer.color (suffix ?t0) <> Red \/ Buffer.is_empty (suffix ?t0)
+    ] =>
+      destruct Proof ; [ left | (right ; firstorder) ] ;
+      destruct t0 as [ prefix0 suffix0 ], is_last ;
+      destruct prefix0, suffix0 ; firstorder
+  | [ Proof : color ?t0 ?is_last <> Red \/ is_empty ?t0 ,
+      H : ~ Buffer.is_empty (?X ?t0)
+      |- Buffer.color (?Y ?t0) <> Red \/ Buffer.is_empty (?Z ?t0)
+    ] =>
+      destruct t0 as [ prefix0 suffix0 ]; compute in Proof |- *;
+      destruct (Buffer.dec_is_empty prefix0), (Buffer.dec_is_empty suffix0);
+      destruct prefix0, suffix0, is_last ; firstorder;
+      left ; intro Color_mismatch ; discriminate Color_mismatch
+  end.
+
+Local Obligation Tactic := (program_simpl ; helper_push_inject).
+
 Program Definition push {A : Set} (x : A) (t : t A) (is_last : bool)
   (proof : color t is_last <> Red \/ is_empty t) :=
   if Buffer.dec_is_empty (prefix t) then
@@ -42,20 +63,12 @@ Program Definition push {A : Set} (x : A) (t : t A) (is_last : bool)
   else
     makeLvl (Buffer.push x (prefix t)) (suffix t).
 
-Next Obligation.
-Proof.
-  destruct t0 ; compute in proof;
-  destruct (Buffer.dec_is_empty prefix0), (Buffer.dec_is_empty suffix0);
-  destruct prefix0, suffix0, is_last ; firstorder.
-Qed.
-
-Next Obligation.
-Proof.
-  destruct t0 ; compute in proof |- *;
-  destruct (Buffer.dec_is_empty prefix0), (Buffer.dec_is_empty suffix0);
-  destruct prefix0, suffix0, is_last ; firstorder;
-  left ; intro Color_mismatch ; discriminate Color_mismatch.
-Qed.
+Program Definition inject {A : Set} (x : A) (t : t A) (is_last : bool)
+  (proof : color t is_last <> Red \/ is_empty t) :=
+  if Buffer.dec_is_empty (prefix t) then
+    makeLvl (Buffer.inject x (suffix t)) Buffer.Zero
+  else
+    makeLvl (prefix t) (Buffer.inject x (suffix t)).
 
 Theorem red_push_iff_yellow :
   forall A x is_last, forall t : t A,
