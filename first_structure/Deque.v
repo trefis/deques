@@ -137,17 +137,31 @@ Proof.
   reflexivity || (exfalso ; apply H ; reflexivity).
 Qed.
 
-Ltac clean_greens :=
-  match goal with
-  | [ Hcol : Level.color ?lvli ?is_last = Green
-    |- context[Level.color ?lvli ?is_last = Green] ] =>
-    rewrite Hcol ; auto
+Ltac is_color x :=
+  match x with
+  | Red => idtac
+  | Green => idtac
+  | Yellow => idtac
+  | _ => fail
+  end.
+
+Ltac simpl_colors :=
+  simpl in * ;
+  repeat match goal with
+  | [ H : ?Color = color ?deque |- _ ] =>
+    is_color Color ; rewrite <- H in *
+  | [ H : ?Color = Stack.color ?stack ?bool |- _ ] =>
+    is_color Color ; rewrite <- H in *
+  | [ H : ?Color = Level.color ?lvl ?is_last |- _ ] =>
+    is_color Color ; rewrite <- H in *
+  | [ H : Level.color ?lvl ?is_last = ?Color |- _ ] =>
+    is_color Color ; rewrite H in *
   | [ Hcol : Level.color ?lvli false = Green
     |- context[Level.color ?lvli true = Green] ] =>
     rewrite color_preservation ; rewrite Hcol ; auto || discriminate
-  end.
+  end ; try split ; trivial || auto.
 
-Local Obligation Tactic := (program_simpl ; try clean_greens).
+Local Obligation Tactic := (program_simpl ; try simpl_colors).
 
 Program Definition do_regularize {A} (d : t A) (Hsr : semi_regular d)
   (Color : color d = Red) (Hempty : ~ is_empty d)
@@ -217,7 +231,6 @@ Proof. right ; compute ; tauto. Qed.
 
 Next Obligation.
 Proof.
-  simpl in Color.
   destruct lvli ; destruct prefix, suffix ; solve [
     (simpl ; omega) |
     (compute in Color ; discriminate Color) |
@@ -269,7 +282,6 @@ Qed.
 
 Next Obligation.
 Proof.
-  split ; [ .. | reflexivity ].
   dependent destruction yellows ; auto.
 Qed.
 
@@ -277,14 +289,13 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous.
-  left; dependent destruction yellows ; simpl in Hsr, Color ;
-  rewrite Color in Hsr ; destruct Hsr ; congruence.
+  left; dependent destruction yellows; simpl_colors; destruct Hsr; congruence.
 Qed.
 
 Next Obligation.
 Proof.
   clear Heq_anonymous.
-  simpl in Hsr, Color ; rewrite Color in Hsr.
+  rewrite Color in Hsr.
   dependent destruction yellows ; destruct Hsr as [ Hcol _ ] ;
   destruct lvlSi ; destruct prefix, suffix ; compute in H, Hcol ;
   firstorder ; discriminate Hcol.
@@ -293,8 +304,7 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous.
-  intuition.
-  simpl in Hsr, Color ; rewrite Color in Hsr.
+  intuition ; simpl_colors.
   dependent destruction yellows ; destruct Hsr as [ Hcol _ ] ;
   destruct lvlSi ; destruct prefix, suffix ; compute in H1, Hcol ;
   firstorder ; discriminate Hcol.
@@ -311,7 +321,6 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0 Heq_anonymous H0 H1 H3 HlvlSi'.
-  split ; [ .. | reflexivity ].
   dependent destruction yellows ; auto.
 Qed.
 
@@ -346,9 +355,7 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0 Heq_anonymous.
-  split ; [ .. | reflexivity ].
-  simpl in Hsr, Color ; rewrite Color in Hsr.
-  destruct Hsr ; assumption.
+  simpl_colors ; destruct Hsr ; assumption.
 Qed.
 
 Next Obligation.
@@ -362,39 +369,33 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0 Heq_anonymous.
-  split ; [ .. | reflexivity ].
   split.
   - dependent destruction yellows ;
-    destruct (Level.color lvlSi' false) ; try solve [
-      trivial | (apply H ; reflexivity) |
-      (simpl in Hsr, Color ; rewrite Color in Hsr ; firstorder)
+    destruct (Level.color lvlSi' false) ; solve [
+      trivial | (apply H ; reflexivity) | (simpl_colors ; firstorder)
     ].
-  - simpl in Hsr, Color ; rewrite Color in Hsr.
-    destruct Hsr ; assumption.
+  - simpl_colors ; destruct Hsr ; assumption.
 Qed.
 
 (* general_case2b *)
 Next Obligation.
 Proof.
   clear Heq_anonymous.
-  left; dependent destruction yellows ; simpl in Hsr, Color ;
-  rewrite Color in Hsr ; destruct Hsr ; congruence.
+  left; dependent destruction yellows ;
+    simpl_colors ; destruct Hsr ; congruence.
 Qed.
 
 Next Obligation.
 Proof.
   clear Heq_anonymous.
-  simpl in Hsr, Color ; rewrite Color in Hsr.
-  dependent destruction yellows ; destruct Hsr as [ Hcol _ ] ;
+  simpl_colors ; dependent destruction yellows ; destruct Hsr as [ Hcol _ ] ;
   destruct lvlSi ; destruct prefix, suffix ; compute in H, Hcol ;
   firstorder ; discriminate Hcol.
 Qed.
 
 Next Obligation.
 Proof.
-  clear Heq_anonymous.
-  intuition.
-  simpl in Hsr, Color ; rewrite Color in Hsr.
+  clear Heq_anonymous ; intuition ; simpl_colors.
   dependent destruction yellows ; destruct Hsr as [ Hcol _ ] ;
   destruct lvlSi ; destruct prefix, suffix ; compute in H1, Hcol ;
   firstorder ; discriminate Hcol.
@@ -409,45 +410,19 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0 Heq_anonymous.
-  split ; [ .. | reflexivity ].
-  simpl in Hsr, Color ; rewrite Color in Hsr.
-  do 2 destruct Hsr  as [ _ Hsr ]; assumption.
+  simpl_colors ; do 2 destruct Hsr  as [ _ Hsr ]; assumption.
 Qed.
 
 Next Obligation.
 Proof.
   clear Heq_anonymous0 Heq_anonymous.
-  split ; [ .. | reflexivity ].
   split.
   - dependent destruction yellows ;
-    destruct (Level.color lvlSi' false) ; try solve [
-      trivial | (apply H ; reflexivity) |
-      (simpl in Hsr, Color ; rewrite Color in Hsr ; firstorder)
+    destruct (Level.color lvlSi' false) ; solve [
+      trivial | (apply H ; reflexivity) | (simpl_colors ; firstorder)
     ].
-  - simpl in Hsr, Color ; rewrite Color in Hsr.
-    do 2 destruct Hsr as [ _ Hsr ] ; assumption.
+  - simpl_colors ; do 2 destruct Hsr as [ _ Hsr ] ; assumption.
 Qed.
-
-Ltac is_color x :=
-  match x with
-  | Red => idtac
-  | Green => idtac
-  | Yellow => idtac
-  | _ => fail
-  end.
-
-Ltac simpl_colors :=
-  simpl in * ;
-  repeat match goal with
-  | [ H : ?Color = color ?deque |- _ ] =>
-    is_color Color ; rewrite <- H in *
-  | [ H : ?Color = Stack.color ?stack ?bool |- _ ] =>
-    is_color Color ; rewrite <- H in *
-  | [ H : ?Color = Level.color ?stack ?bool |- _ ] =>
-    is_color Color ; rewrite <- H in *
-  end ; try split ; trivial.
-
-Local Obligation Tactic := (program_simpl ; simpl_colors).
 
 Program Definition regularize {A : Set} (d : t A) (Hsr : semi_regular d) :
   { d : t A | regular d }
