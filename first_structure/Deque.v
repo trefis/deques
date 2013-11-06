@@ -128,6 +128,27 @@ Proof.
   constructor.
 Defined.
 
+Lemma color_preservation :
+  forall {A}, forall lvl:Level.t A,
+    Level.color lvl false <> Red -> Level.color lvl true = Level.color lvl false.
+Proof.
+  intros.
+  destruct lvl ; destruct prefix, suffix ; compute in H |- * ;
+  reflexivity || (exfalso ; apply H ; reflexivity).
+Qed.
+
+Ltac clean_greens :=
+  match goal with
+  | [ Hcol : Level.color ?lvli ?is_last = Green
+    |- context[Level.color ?lvli ?is_last = Green] ] =>
+    rewrite Hcol ; auto
+  | [ Hcol : Level.color ?lvli false = Green
+    |- context[Level.color ?lvli true = Green] ] =>
+    rewrite color_preservation ; rewrite Hcol ; auto || discriminate
+  end.
+
+Local Obligation Tactic := (program_simpl ; try clean_greens).
+
 Program Definition do_regularize {A} (d : deque A) (Hsr : semi_regular d)
   (Color : color d = Red) (Hempty : ~ is_empty d)
 : { d : deque A | regular d /\ color d = Green }
@@ -205,24 +226,6 @@ Proof.
   ].
 Qed.
 
-Next Obligation.
-Proof. rewrite Hcol ; auto. Qed.
-
-Lemma color_preservation :
-  forall {A}, forall lvl:Level.t A,
-    Level.color lvl false <> Red -> Level.color lvl true = Level.color lvl false.
-Proof.
-  intros.
-  destruct lvl ; destruct prefix, suffix ; compute in H |- * ;
-  reflexivity || (exfalso ; apply H ; reflexivity).
-Qed.
-
-Next Obligation.
-Proof. rewrite color_preservation ; rewrite Hcol ; auto || discriminate. Qed.
-
-Next Obligation.
-Proof. rewrite Hcol ; auto. Qed.
-
 (* general_case1a *)
 Next Obligation.
 Proof.
@@ -260,24 +263,15 @@ Proof.
 Qed.
 
 Next Obligation.
-Proof. rewrite H0 ; auto. Qed.
-
-Next Obligation.
-Proof. rewrite color_preservation ; rewrite H1 ; auto || discriminate. Qed.
-
-Next Obligation.
 Proof.
   dependent destruction yellows ; [ .. | destruct wildcard'0 ] ; auto.
 Qed.
 
 Next Obligation.
 Proof.
-  rewrite H2 ; split ; [ .. | reflexivity ].
+  split ; [ .. | reflexivity ].
   dependent destruction yellows ; auto.
 Qed.
-
-Next Obligation.
-Proof. rewrite H ; auto. Qed.
 
 (* general_case1b *)
 Next Obligation.
@@ -315,20 +309,11 @@ Proof.
 Qed.
 
 Next Obligation.
-Proof. rewrite H0 ; auto. Qed.
-
-Next Obligation.
-Proof. rewrite color_preservation ; rewrite H1 ; [ auto | discriminate ]. Qed.
-
-Next Obligation.
 Proof.
   clear Heq_anonymous0 ; clear Heq_anonymous.
-  rewrite H2 ; split ; [ .. | reflexivity ].
+  split ; [ .. | reflexivity ].
   dependent destruction yellows ; auto.
 Qed.
-
-Next Obligation.
-Proof. rewrite H ; auto. Qed.
 
 (* general_case2a *)
 Next Obligation.
@@ -361,7 +346,7 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0 ; clear Heq_anonymous.
-  rewrite H0 ; split ; [ .. | reflexivity ].
+  split ; [ .. | reflexivity ].
   simpl in Hsr, Color ; rewrite Color in Hsr.
   destruct Hsr ; assumption.
 Qed.
@@ -377,7 +362,7 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0 ; clear Heq_anonymous.
-  rewrite H1 ; split ; [ .. | reflexivity ].
+  split ; [ .. | reflexivity ].
   split.
   - dependent destruction yellows ;
     destruct (Level.color lvlSi' false) ; try solve [
@@ -388,7 +373,7 @@ Proof.
     destruct Hsr ; assumption.
 Qed.
 
-(* general_case2a *)
+(* general_case2b *)
 Next Obligation.
 Proof.
   clear Heq_anonymous.
@@ -424,7 +409,7 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0 ; clear Heq_anonymous.
-  rewrite H0 ; split ; [ .. | reflexivity ].
+  split ; [ .. | reflexivity ].
   simpl in Hsr, Color ; rewrite Color in Hsr.
   do 2 destruct Hsr  as [ _ Hsr ]; assumption.
 Qed.
@@ -432,7 +417,7 @@ Qed.
 Next Obligation.
 Proof.
   clear Heq_anonymous0 ; clear Heq_anonymous.
-  rewrite H1 ; split ; [ .. | reflexivity ].
+  split ; [ .. | reflexivity ].
   split.
   - dependent destruction yellows ;
     destruct (Level.color lvlSi' false) ; try solve [
