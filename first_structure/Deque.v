@@ -568,6 +568,82 @@ Proof.
   exact (proj1 (proj2_sig d')).
 Qed.
 
+Ltac trivial_cases :=
+  match goal with
+  | [ H : S.well_formed ?top ?bool, jmeq : [] ~= ?top |- False ] =>
+    apply JMeq_eq in jmeq ; subst ; assumption
+  | [ H : S.well_formed ?top ?bool, jmeq : ?lvl ::: ?yellows ~= ?top
+      |- S.all_yellows ?yellows ?bool
+    ] => apply JMeq_eq in jmeq ; subst ; assumption
+  end.
+
+Ltac clean_jmeq :=
+  match goal with
+  | [ H : ?Pattern ~= ?ident |- _ ] =>
+      remember H as H' eqn:Heq ; clear Heq ;
+      apply JMeq_eq in H ; subst
+  end.
+
+Ltac destruct_lvl_color :=
+  match goal with
+  | [ |- Level.color ?lvl ?bool <> Red \/ Level.is_empty ?lvl ] =>
+    destruct (Level.color lvl bool) eqn:Hcol
+  end.
+
+Ltac destruct_yellows :=
+  match goal with
+  | [ H : S.well_formed (?lvl ::: ?Y) ?b
+      |- Level.color ?lvl ?bool <> Red \/ Level.is_empty ?lvl
+    ] =>
+      let yellows := fresh in rename Y into yellows;
+      dependent destruction yellows ; simpl in * ;
+      destruct_lvl_color ; try solve [
+        (left ; discriminate) | (right ; auto) | (exfalso ; assumption)
+      ]
+  end.
+
+Ltac deduce_next_green :=
+  match goal with
+  | [ Hreg : regular (?lvl ::: ?yellows ++ ?stacks) ,
+      Hcol : Level.color ?lvl ?is_last <> Green
+      |- color ?stacks = Green
+    ] =>
+      simpl in Hreg ; destruct (Level.color lvl is_last) ; [
+        (exfalso ; apply Hcol ; trivial) |
+        (destruct Hreg ; assumption) |
+        (exfalso ; assumption)
+      ]
+  end.
+
+Ltac clear_level_op :=
+  do 2 match goal with
+  | [ Heqlvl' : ?lvl' = Level.push ?elt ?lvl false ?proof |- _ ] =>
+    subst lvl'
+  | [ Heqlvl' : ?lvl' = Level.inject ?elt ?lvl false ?proof |- _ ] =>
+    subst lvl'
+  | [ H : Level.color (?level_op ?elt ?lvl false ?proof) false = Red |- _ ] =>
+      idtac level_op ;
+    match level_op with
+    | Level.push   => apply Level.red_push_iff_yellow in H
+    | Level.inject => apply Level.red_inject_iff_not_green in H
+    | _ => fail
+    end
+  end.
+
+Ltac remember_op :=
+  match goal with
+  | [ |- context[Level.push ?elt ?lvl ?bool ?proof] ] =>
+    remember (Level.push elt lvl bool proof) as lvl' ; simpl
+  | [ |- context[Level.inject ?elt ?lvl ?bool ?proof] ] =>
+    remember (Level.inject elt lvl bool proof) as lvl' ; simpl
+  end.
+
+Local Obligation Tactic := (
+  program_simpl ; try clean_jmeq ;
+    try solve [ assumption | destruct_yellows ] ;
+    remember_op
+).
+
 Program Definition push {A : Set} (elt : A) (d : deque A) (p : regular d) :
   { d : deque A | regular d }
 :=
@@ -603,54 +679,55 @@ Program Definition push {A : Set} (elt : A) (d : deque A) (p : regular d) :
 
 Next Obligation.
 Proof.
-  apply JMeq_eq in Heq_top ; subst.
-  assumption.
-Qed.
-
-Next Obligation.
-Proof.
-  apply JMeq_eq in Heq_top ; subst.
-  dependent destruction yellows ; simpl in *.
-  - destruct (Level.color lvl true) ; (left ; discriminate) || (right ; auto).
-  - destruct (Level.color lvl false) ; (left ; discriminate) || (exfalso ; assumption).
-Qed.
-
-Next Obligation.
-Proof. apply JMeq_eq in Heq_top ; subst ; assumption. Qed.
-
-Next Obligation.
-Proof. apply JMeq_eq in Heq_top ; subst ; assumption. Qed.
-  
-Next Obligation.
-Proof.
-  apply JMeq_eq in Heq_top ; subst.
-  dependent destruction yellows; simpl in *; destruct (Level.color lvl false);
-  (left ; discriminate) || (exfalso ; assumption).
-Qed.  
-
-Next Obligation.
-Proof. apply JMeq_eq in Heq_top ; subst ; assumption. Qed.
-
-Next Obligation.
-Proof.
-  remember Heq_top as Heq_top' ; clear HeqHeq_top'.
-  apply JMeq_eq in Heq_top ; subst top.
-  remember (Level.push _ lvl false _) as lvl' ; simpl.
   assert (Hgbr : green_between_reds stacks) by
     (simpl in p ; clear Heqlvl' lvl';
     dependent destruction yellows ; destruct (Level.color lvl false) ;
     simpl in p ; firstorder).
-  dependent destruction yellows; destruct (Level.color lvl' false) eqn:Hcol;
-  simpl ; try solve [ trivial | (split ; trivial) ] ; (split ; [ .. | trivial ]).
-  - subst lvl' ; apply Level.red_push_iff_yellow in Hcol.
-    simpl in p ; destruct (Level.color lvl false).
-    + exfalso ; apply Hcol ; trivial.
-    + destruct p ; assumption.
-    + exfalso ; assumption.
-  - subst lvl' ; apply Level.red_push_iff_yellow in Hcol.
-    simpl in p ; destruct (Level.color lvl false).
-    + exfalso ; apply Hcol ; trivial.
-    + destruct p ; assumption.
-    + exfalso ; assumption.
-  (* TODO: factorize. *)
+  dependent destruction yellows; destruct (Level.color lvl' false) eqn:Hcol ;
+  try solve [ trivial | (split ; trivial) ] ; (split ; [ .. | trivial ]);
+  clear_level_op ; deduce_next_green.
+Qed.
+
+Program Definition inject {A : Set} (elt : A) (d : deque A) (p : regular d) :
+  { d : deque A | regular d }
+:=
+  match d with
+  | << top >> =>
+    match top with
+    | [] => !
+    | S.Cons X Y lvl yellows =>
+      let elt := eq_rect A (fun T => T) elt X eq_refl in
+      let is_last :=
+        match yellows with
+        | [] => true
+        | _ ::: _ => false
+        end
+      in
+      let p := _ in
+      let lvl := Level.inject elt lvl is_last p in
+      let d := << lvl ::: yellows >> in
+      regularize d _
+    end
+  | @SeveralLvls B top _ stacks =>
+    match top with
+    | [] => !
+    | S.Cons X Y lvl yellows =>
+      let elt := eq_rect A (fun T => T) elt X eq_refl in
+      let p := _ in
+      let lvl := Level.inject elt lvl false p in
+      let stacks := eq_rect B deque stacks Y eq_refl in
+      let d := lvl ::: yellows ++ stacks in
+      regularize d _
+    end
+  end.
+
+Next Obligation.
+Proof.
+  assert (Hgbr : green_between_reds stacks) by
+    (simpl in p ; clear Heqlvl' lvl';
+    dependent destruction yellows ; destruct (Level.color lvl false) ;
+    simpl in p ; firstorder).
+  dependent destruction yellows; destruct (Level.color lvl' false) eqn:Hcol ;
+  try solve [ trivial | (split ; trivial) ] ; (split ; [ .. | trivial ]);
+  clear_level_op ; deduce_next_green.
 Qed.
