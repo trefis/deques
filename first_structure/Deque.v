@@ -7,11 +7,11 @@ Require Stack.
 
 Module S := Stack.
 
-Inductive deque (A : Set) : Type :=
+Inductive t (A : Set) : Type :=
   | SingleLevel :
-    forall B, forall s : Stack.t A B, Stack.well_formed s true -> deque A
+    forall B, forall s : Stack.t A B, Stack.well_formed s true -> t A
   | SeveralLvls :
-    forall B, forall s : Stack.t A B, Stack.well_formed s false -> deque B -> deque A.
+    forall B, forall s : Stack.t A B, Stack.well_formed s false -> t B -> t A.
 
 Arguments SingleLevel [A B] _ _.
 Arguments SeveralLvls [A B] _ _ _.
@@ -22,19 +22,19 @@ Notation "x ++ y" := (SeveralLvls x _ y).
 Notation "[]" := (@Stack.Nil _) (at level 40).
 Notation "a ::: b" := (@Stack.Cons _ _ a b) (at level 55, right associativity).
 
-Definition color {A} (d : deque A) :=
+Definition color {A} (d : t A) :=
   match d with
   | << stack >> => Stack.color stack true
   | stack ++ _ => Stack.color stack false
   end.
 
-Definition is_empty {A} (d : deque A) :=
+Definition is_empty {A} (d : t A) :=
   match d with
   | << (lvl ::: []) >> => Level.is_empty lvl
   | _ => False
   end.
 
-Definition dec_is_empty {A} (d : deque A) : { is_empty d } + { ~ is_empty d }.
+Definition dec_is_empty {A} (d : t A) : { is_empty d } + { ~ is_empty d }.
 Proof.
   destruct d ; [ .. | (right ; simpl ; auto) ].
   destruct s ; [ (exfalso ; assumption) | .. ].
@@ -42,7 +42,7 @@ Proof.
   apply Level.dec_is_empty.
 Defined.
 
-Fixpoint green_between_reds {A} (d : deque A) : Prop :=
+Fixpoint green_between_reds {A} (d : t A) : Prop :=
   match d with
   | << stack >> => Stack.color stack true <> Yellow
   | top ++ rest =>
@@ -56,7 +56,7 @@ Fixpoint green_between_reds {A} (d : deque A) : Prop :=
     g_before_r /\ green_between_reds rest
   end.
 
-Definition semi_regular {A} (d : deque A) : Prop :=
+Definition semi_regular {A} (d : t A) : Prop :=
   match d with
   | << _ >> => True
   | top ++ rest =>
@@ -66,7 +66,7 @@ Definition semi_regular {A} (d : deque A) : Prop :=
     end
   end.
 
-Definition regular {A} (d : deque A) : Prop :=
+Definition regular {A} (d : t A) : Prop :=
   match d with
   | << s >> =>
     match Stack.color s true with
@@ -81,11 +81,11 @@ Definition regular {A} (d : deque A) : Prop :=
     end
   end.
 
-Program Definition empty A : { d : deque A | regular d } := << Stack.empty A >>.
+Program Definition empty A : { d : t A | regular d } := << Stack.empty A >>.
 Next Obligation.
 Proof. compute ; tauto. Qed.
 
-Inductive regularisation_cases (A : Set) : deque A -> Type :=
+Inductive regularisation_cases (A : Set) : t A -> Type :=
   | one_level :
     forall lvl : Level.t A,
     forall p_wf : Stack.well_formed (lvl ::: []) true,
@@ -107,19 +107,19 @@ Inductive regularisation_cases (A : Set) : deque A -> Type :=
     forall B lvli lvlSi,
     forall yellows : Stack.t ((A * A) * (A * A)) B,
     forall p_wf : Stack.well_formed (lvli ::: lvlSi ::: yellows) false,
-    forall rest : deque B,
+    forall rest : t B,
     regularisation_cases A (SeveralLvls (lvli ::: lvlSi ::: yellows) p_wf rest)
   | general_case2b :
     forall B lvli lvlSi,
     forall yellows : Stack.t ((A * A) * (A * A)) B,
     forall p_wf1 : Stack.well_formed (lvli ::: []) false,
     forall p_wf2 : Stack.well_formed (lvlSi ::: yellows) false,
-    forall rest : deque B,
+    forall rest : t B,
     regularisation_cases A 
       (SeveralLvls (lvli ::: []) p_wf1
         (SeveralLvls (lvlSi ::: yellows) p_wf2 rest)).
 
-Definition dispatch (A : Set) (d : deque A) (p : semi_regular d) :
+Definition dispatch (A : Set) (d : t A) (p : semi_regular d) :
   regularisation_cases A d.
 Proof.
   destruct d ; (destruct s ; [ (exfalso ; apply w) | .. ]) ;
@@ -149,9 +149,9 @@ Ltac clean_greens :=
 
 Local Obligation Tactic := (program_simpl ; try clean_greens).
 
-Program Definition do_regularize {A} (d : deque A) (Hsr : semi_regular d)
+Program Definition do_regularize {A} (d : t A) (Hsr : semi_regular d)
   (Color : color d = Red) (Hempty : ~ is_empty d)
-: { d : deque A | regular d /\ color d = Green }
+: { d : t A | regular d /\ color d = Green }
 :=
   match dispatch A d Hsr with
   | one_level lvli _ =>
@@ -428,8 +428,8 @@ Proof.
     do 2 destruct Hsr as [ _ Hsr ] ; assumption.
 Qed.
 
-Program Definition regularize {A : Set} (d : deque A) (Hsr : semi_regular d) :
-  { d : deque A | regular d }
+Program Definition regularize {A : Set} (d : t A) (Hsr : semi_regular d) :
+  { d : t A | regular d }
 :=
   match color d with
   | Green => d
@@ -605,8 +605,8 @@ Local Obligation Tactic := (
   program_simpl ; try clean_jmeq ; try (assumption || destruct_yellows)
 ).
 
-Program Definition push {A : Set} (elt : A) (d : deque A) (p : regular d) :
-  { d : deque A | regular d }
+Program Definition push {A : Set} (elt : A) (d : t A) (p : regular d) :
+  { d : t A | regular d }
 :=
   match d with
   | << top >> =>
@@ -632,7 +632,7 @@ Program Definition push {A : Set} (elt : A) (d : deque A) (p : regular d) :
       let elt := eq_rect A (fun T => T) elt X eq_refl in
       let p := _ in
       let lvl := Level.push elt lvl false p in
-      let stacks := eq_rect B deque stacks Y eq_refl in
+      let stacks := eq_rect B t stacks Y eq_refl in
       let d := lvl ::: yellows ++ stacks in
       regularize d _
     end
@@ -650,8 +650,8 @@ Proof.
   subst lvl' ; apply Level.red_push_iff_yellow in Hcol ; deduce_next_green.
 Qed.
 
-Program Definition inject {A : Set} (elt : A) (d : deque A) (p : regular d) :
-  { d : deque A | regular d }
+Program Definition inject {A : Set} (elt : A) (d : t A) (p : regular d) :
+  { d : t A | regular d }
 :=
   match d with
   | << top >> =>
@@ -677,7 +677,7 @@ Program Definition inject {A : Set} (elt : A) (d : deque A) (p : regular d) :
       let elt := eq_rect A (fun T => T) elt X eq_refl in
       let p := _ in
       let lvl := Level.inject elt lvl false p in
-      let stacks := eq_rect B deque stacks Y eq_refl in
+      let stacks := eq_rect B t stacks Y eq_refl in
       let d := lvl ::: yellows ++ stacks in
       regularize d _
     end
@@ -695,8 +695,8 @@ Proof.
   subst lvl' ; apply Level.red_inject_iff_not_green in Hcol ; deduce_next_green.
 Qed.
 
-Program Definition pop {A : Set} (d : deque A) (p : regular d) :
-  option (A * { d : deque A | regular d })
+Program Definition pop {A : Set} (d : t A) (p : regular d) :
+  option (A * { d : t A | regular d })
 :=
   match d with
   | << top >> =>
@@ -719,7 +719,7 @@ Program Definition pop {A : Set} (d : deque A) (p : regular d) :
       | left _ => None
       | right NotEmpty  =>
         let pair := Level.pop lvl NotEmpty in
-        let stacks := eq_rect B deque stacks Y eq_refl in
+        let stacks := eq_rect B t stacks Y eq_refl in
         let d := (snd pair) ::: yellows ++ stacks in
         Some (fst pair, regularize d _)
       end
@@ -738,8 +738,8 @@ Proof.
   subst lvl0 ; apply Level.red_pop_iff_not_green in Hcol ; deduce_next_green.
 Qed.
 
-Program Definition eject {A : Set} (d : deque A) (p : regular d) :
-  option (A * { d : deque A | regular d })
+Program Definition eject {A : Set} (d : t A) (p : regular d) :
+  option (A * { d : t A | regular d })
 :=
   match d with
   | << top >> =>
@@ -762,7 +762,7 @@ Program Definition eject {A : Set} (d : deque A) (p : regular d) :
       | left _ => None
       | right NotEmpty  =>
         let pair := Level.eject lvl NotEmpty in
-        let stacks := eq_rect B deque stacks Y eq_refl in
+        let stacks := eq_rect B t stacks Y eq_refl in
         let d := (snd pair) ::: yellows ++ stacks in
         Some (fst pair, regularize d _)
       end

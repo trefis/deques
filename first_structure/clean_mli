@@ -1,11 +1,11 @@
-type _ deque
+type _ t
 
-val dec_is_empty : _ deque -> bool
+val dec_is_empty : _ t -> bool
 
-val empty : 'a deque
+val empty : 'a t
 
-val push : 'a -> 'a deque -> 'a deque
-val pop  : 'a deque -> ('a * 'a deque) option
+val push : 'a -> 'a t -> 'a t
+val pop  : 'a t -> ('a * 'a t) option
 
-val inject : 'a -> 'a deque -> 'a deque
-val eject  : 'a deque -> ('a * 'a deque) option
+val inject : 'a -> 'a t -> 'a t
+val eject  : 'a t -> ('a * 'a t) option
