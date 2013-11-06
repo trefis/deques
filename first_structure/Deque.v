@@ -302,7 +302,7 @@ Qed.
 
 Next Obligation.
 Proof.
-  clear Heq_anonymous0 ; clear Heq_anonymous.
+  clear Heq_anonymous0 Heq_anonymous.
   dependent destruction yellows.
   - congruence.
   - split ; [ congruence | assumption ].
@@ -310,7 +310,7 @@ Qed.
 
 Next Obligation.
 Proof.
-  clear Heq_anonymous0 ; clear Heq_anonymous.
+  clear Heq_anonymous0 Heq_anonymous H0 H1 H3 HlvlSi'.
   split ; [ .. | reflexivity ].
   dependent destruction yellows ; auto.
 Qed.
@@ -338,14 +338,14 @@ Qed.
 
 Next Obligation.
 Proof.
-  clear Heq_anonymous0 ; clear Heq_anonymous.
+  clear Heq_anonymous0 Heq_anonymous.
   dependent destruction yellows ; [ .. | split ] ; auto.
   destruct wildcard'0 ; assumption.
 Qed.
 
 Next Obligation.
 Proof.
-  clear Heq_anonymous0 ; clear Heq_anonymous.
+  clear Heq_anonymous0 Heq_anonymous.
   split ; [ .. | reflexivity ].
   simpl in Hsr, Color ; rewrite Color in Hsr.
   destruct Hsr ; assumption.
@@ -353,7 +353,7 @@ Qed.
 
 Next Obligation.
 Proof.
-  clear Heq_anonymous0 ; clear Heq_anonymous.
+  clear Heq_anonymous0 Heq_anonymous.
   dependent destruction yellows.
   - simpl ; trivial.
   - destruct wildcard'0 ; assumption.
@@ -361,7 +361,7 @@ Qed.
 
 Next Obligation.
 Proof.
-  clear Heq_anonymous0 ; clear Heq_anonymous.
+  clear Heq_anonymous0 Heq_anonymous.
   split ; [ .. | reflexivity ].
   split.
   - dependent destruction yellows ;
@@ -402,13 +402,13 @@ Qed.
 
 Next Obligation.
 Proof.
-  clear Heq_anonymous0 ; clear Heq_anonymous.
+  clear Heq_anonymous0 Heq_anonymous.
   dependent destruction yellows ; auto.
 Qed.
 
 Next Obligation.
 Proof.
-  clear Heq_anonymous0 ; clear Heq_anonymous.
+  clear Heq_anonymous0 Heq_anonymous.
   split ; [ .. | reflexivity ].
   simpl in Hsr, Color ; rewrite Color in Hsr.
   do 2 destruct Hsr  as [ _ Hsr ]; assumption.
@@ -416,7 +416,7 @@ Qed.
 
 Next Obligation.
 Proof.
-  clear Heq_anonymous0 ; clear Heq_anonymous.
+  clear Heq_anonymous0 Heq_anonymous.
   split ; [ .. | reflexivity ].
   split.
   - dependent destruction yellows ;
@@ -427,6 +427,27 @@ Proof.
   - simpl in Hsr, Color ; rewrite Color in Hsr.
     do 2 destruct Hsr as [ _ Hsr ] ; assumption.
 Qed.
+
+Ltac is_color x :=
+  match x with
+  | Red => idtac
+  | Green => idtac
+  | Yellow => idtac
+  | _ => fail
+  end.
+
+Ltac simpl_colors :=
+  simpl in * ;
+  repeat match goal with
+  | [ H : ?Color = color ?deque |- _ ] =>
+    is_color Color ; rewrite <- H in *
+  | [ H : ?Color = Stack.color ?stack ?bool |- _ ] =>
+    is_color Color ; rewrite <- H in *
+  | [ H : ?Color = Level.color ?stack ?bool |- _ ] =>
+    is_color Color ; rewrite <- H in *
+  end ; try split ; trivial.
+
+Local Obligation Tactic := (program_simpl ; simpl_colors).
 
 Program Definition regularize {A : Set} (d : t A) (Hsr : semi_regular d) :
   { d : t A | regular d }
@@ -457,31 +478,14 @@ Program Definition regularize {A : Set} (d : t A) (Hsr : semi_regular d) :
   end.
 
 Next Obligation.
-Proof.
-  destruct d ; simpl in * ; rewrite <- Heq_anonymous ; trivial.
-  rewrite <- Heq_anonymous in Hsr ; destruct Hsr.
-  assumption.
-Qed.
-
-Next Obligation.
-Proof. simpl in * ; rewrite <- Heq_anonymous ; trivial. Qed.
+Proof. destruct d ; simpl_colors ; tauto. Qed.
 
 Next Obligation.
 Proof.
-  simpl in *.
-  rewrite <- Heq_anonymous in Hsr |- *.
-  split ; auto.
-Qed.
-
-Next Obligation.
-Proof.
-  simpl in *.
-  rewrite <- Heq_anonymous in Hsr.
   destruct stacks ; simpl in *.
   - congruence.
   - destruct Hsr as [ Hsr _ ].
-    rewrite <- Heq_anonymous0 in Hsr.
-    assumption.
+    simpl_colors.
 Qed.
 
 Next Obligation.
@@ -500,15 +504,11 @@ Qed. (* well that was laborious *)
 
 Next Obligation.
 Proof.
-  simpl in Heq_anonymous.
   destruct top.
   - exfalso ; assumption.
-  - simpl in Heq_anonymous |- *.
-    dependent destruction top.
-    + rewrite color_preservation; [
-        (rewrite <- Heq_anonymous ; trivial) | congruence
-      ].
-    + rewrite <- Heq_anonymous ; trivial.
+  - simpl_colors.
+    dependent destruction top ; [ rewrite color_preservation | .. ] ;
+    simpl_colors ; discriminate.
 Qed.
 
 Next Obligation.
@@ -516,17 +516,14 @@ Proof.
   destruct stacks.
   - simpl ; trivial.
   - simpl in *.
-    rewrite <- Heq_anonymous in Hsr.
     destruct (Stack.color s false) ; try assumption.
     destruct Hsr ; exfalso ; assumption.
 Qed.
 
 Next Obligation.
 Proof.
-  simpl in *.
   dependent rewrite <- Heq_anonymous.
-  remember (do_regularize stacks _ _ _) as s.
-  clear Heqs.
+  remember (do_regularize stacks _ _ _) as s ; clear Heqs.
   split.
   - exact (proj2 (proj2_sig s)).
   - destruct s ; simpl.
