@@ -708,3 +708,89 @@ Proof.
   try solve [ trivial | (split ; trivial) ] ; (split ; [ .. | trivial ]);
   subst lvl' ; apply Level.red_inject_iff_not_green in Hcol ; deduce_next_green.
 Qed.
+
+Program Definition pop {A : Set} (elt : A) (d : deque A) (p : regular d) :
+  option (A * { d : deque A | regular d })
+:=
+  match d with
+  | << top >> =>
+    match top with
+    | [] => !
+    | S.Cons X Y lvl yellows =>
+      match Level.dec_is_empty lvl with
+      | left _ => None
+      | right NotEmpty  =>
+        let (elt, lvl) := Level.pop lvl NotEmpty in
+        let d := << lvl ::: yellows >> in
+        Some (elt, regularize d _)
+      end
+    end
+  | @SeveralLvls B top _ stacks =>
+    match top with
+    | [] => !
+    | S.Cons X Y lvl yellows =>
+      match Level.dec_is_empty lvl with
+      | left _ => None
+      | right NotEmpty  =>
+        let pair := Level.pop lvl NotEmpty in
+        let stacks := eq_rect B deque stacks Y eq_refl in
+        let d := (snd pair) ::: yellows ++ stacks in
+        Some (fst pair, regularize d _)
+      end
+    end
+  end.
+
+Next Obligation.
+Proof.
+  remember (snd (Level.pop lvl NotEmpty)) as lvl0 ; simpl.
+  assert (Hgbr : green_between_reds stacks) by
+    (simpl in p ;
+    dependent destruction yellows ; destruct (Level.color lvl false) ;
+    simpl in p ; firstorder).
+  dependent destruction yellows ; destruct (Level.color lvl0 false) eqn:Hcol;
+  try solve [ trivial | (split ; trivial) ] ; (split ; [ .. | trivial ]) ;
+  subst lvl0 ; apply Level.red_pop_iff_not_green in Hcol ; deduce_next_green.
+Qed.
+
+Program Definition eject {A : Set} (elt : A) (d : deque A) (p : regular d) :
+  option (A * { d : deque A | regular d })
+:=
+  match d with
+  | << top >> =>
+    match top with
+    | [] => !
+    | S.Cons X Y lvl yellows =>
+      match Level.dec_is_empty lvl with
+      | left _ => None
+      | right NotEmpty  =>
+        let (elt, lvl) := Level.eject lvl NotEmpty in
+        let d := << lvl ::: yellows >> in
+        Some (elt, regularize d _)
+      end
+    end
+  | @SeveralLvls B top _ stacks =>
+    match top with
+    | [] => !
+    | S.Cons X Y lvl yellows =>
+      match Level.dec_is_empty lvl with
+      | left _ => None
+      | right NotEmpty  =>
+        let pair := Level.eject lvl NotEmpty in
+        let stacks := eq_rect B deque stacks Y eq_refl in
+        let d := (snd pair) ::: yellows ++ stacks in
+        Some (fst pair, regularize d _)
+      end
+    end
+  end.
+
+Next Obligation.
+Proof.
+  remember (snd (Level.eject lvl NotEmpty)) as lvl0 ; simpl.
+  assert (Hgbr : green_between_reds stacks) by
+    (simpl in p ;
+    dependent destruction yellows ; destruct (Level.color lvl false) ;
+    simpl in p ; firstorder).
+  dependent destruction yellows ; destruct (Level.color lvl0 false) eqn:Hcol;
+  try solve [ trivial | (split ; trivial) ] ; (split ; [ .. | trivial ]) ;
+  subst lvl0 ; apply Level.red_eject_iff_not_green in Hcol ; deduce_next_green.
+Qed.
