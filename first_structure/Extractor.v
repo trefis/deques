@@ -1,11 +1,11 @@
-Require Misc.
-Require Buffer.
-Require Level.
-Require Stack.
-Require Deque.
+Require Import Deque.
 
 Set Extraction AccessOpaque.
 
+Extract Inlined Constant fst => "fst".
+Extract Inlined Constant snd => "snd".
+
+Extract Inductive option => "option" ["Some" "None"].
 Extract Inductive sumbool => "bool" [ "true" "false" ].
 Extract Inductive bool => "bool" [ "true" "false" ].
 Extract Inductive prod => "( * )"  [ "(, )" ].
@@ -14,4 +14,4 @@ Extract Inductive nat => "int" [ "0" "succ" ]
 
 Extraction Blacklist Buffer Stack.
 
-Recursive Extraction Library Deque.
+Separate Extraction deque dec_is_empty empty push pop inject eject.

@@ -8,9 +8,10 @@ Require Stack.
 Module S := Stack.
 
 Inductive deque (A : Set) : Type :=
-  | SingleLevel : forall B, forall s : S.t A B, S.well_formed s true -> deque A
+  | SingleLevel :
+    forall B, forall s : Stack.t A B, Stack.well_formed s true -> deque A
   | SeveralLvls :
-    forall B, forall s : S.t A B, S.well_formed s false -> deque B -> deque A.
+    forall B, forall s : Stack.t A B, Stack.well_formed s false -> deque B -> deque A.
 
 Arguments SingleLevel [A B] _ _.
 Arguments SeveralLvls [A B] _ _ _.
@@ -18,13 +19,13 @@ Arguments SeveralLvls [A B] _ _ _.
 Notation "<< X >>" := (SingleLevel X _).
 Notation "x ++ y" := (SeveralLvls x _ y).
 
-Notation "[]" := (@S.Nil _) (at level 40).
-Notation "a ::: b" := (@S.Cons _ _ a b) (at level 55, right associativity).
+Notation "[]" := (@Stack.Nil _) (at level 40).
+Notation "a ::: b" := (@Stack.Cons _ _ a b) (at level 55, right associativity).
 
 Definition color {A} (d : deque A) :=
   match d with
-  | << stack >> => S.color stack true
-  | stack ++ _ => S.color stack false
+  | << stack >> => Stack.color stack true
+  | stack ++ _ => Stack.color stack false
   end.
 
 Definition is_empty {A} (d : deque A) :=
@@ -43,10 +44,10 @@ Defined.
 
 Fixpoint green_between_reds {A} (d : deque A) : Prop :=
   match d with
-  | << stack >> => S.color stack true <> Yellow
+  | << stack >> => Stack.color stack true <> Yellow
   | top ++ rest =>
     let g_before_r :=
-      match S.color top false with
+      match Stack.color top false with
       | Red => color rest = Green
       | Green => True
       | Yellow => False
@@ -68,51 +69,51 @@ Definition semi_regular {A} (d : deque A) : Prop :=
 Definition regular {A} (d : deque A) : Prop :=
   match d with
   | << s >> =>
-    match S.color s true with
-    | Red => S.is_empty s
+    match Stack.color s true with
+    | Red => Stack.is_empty s
     | _   => True
     end
   | top ++ rest =>
-    match S.color top false with
+    match Stack.color top false with
     | Red    => False
     | Green  => green_between_reds rest
     | Yellow => color rest = Green /\ green_between_reds rest
     end
   end.
 
-Program Definition empty A : { d : deque A | regular d } := << S.empty A >>.
+Program Definition empty A : { d : deque A | regular d } := << Stack.empty A >>.
 Next Obligation.
 Proof. compute ; tauto. Qed.
 
 Inductive regularisation_cases (A : Set) : deque A -> Type :=
   | one_level :
     forall lvl : Level.t A,
-    forall p_wf : S.well_formed (lvl ::: []) true,
+    forall p_wf : Stack.well_formed (lvl ::: []) true,
     regularisation_cases A (SingleLevel (lvl ::: []) p_wf)
   | general_case1a :
     forall B lvli lvlSi,
-    forall yellows : S.t ((A * A) * (A * A)) B,
-    forall p_wf : S.well_formed (lvli ::: lvlSi ::: yellows) true,
+    forall yellows : Stack.t ((A * A) * (A * A)) B,
+    forall p_wf : Stack.well_formed (lvli ::: lvlSi ::: yellows) true,
     regularisation_cases A (SingleLevel (lvli ::: lvlSi ::: yellows) p_wf)
   | general_case1b :
     forall B lvli lvlSi,
-    forall yellows : S.t ((A * A) * (A * A)) B,
-    forall p_wf1 : S.well_formed (lvli ::: []) false,
-    forall p_wf2 : S.well_formed (lvlSi ::: yellows) true,
+    forall yellows : Stack.t ((A * A) * (A * A)) B,
+    forall p_wf1 : Stack.well_formed (lvli ::: []) false,
+    forall p_wf2 : Stack.well_formed (lvlSi ::: yellows) true,
     regularisation_cases A 
       (SeveralLvls (lvli ::: []) p_wf1
         (SingleLevel (lvlSi ::: yellows) p_wf2))
   | general_case2a :
     forall B lvli lvlSi,
-    forall yellows : S.t ((A * A) * (A * A)) B,
-    forall p_wf : S.well_formed (lvli ::: lvlSi ::: yellows) false,
+    forall yellows : Stack.t ((A * A) * (A * A)) B,
+    forall p_wf : Stack.well_formed (lvli ::: lvlSi ::: yellows) false,
     forall rest : deque B,
     regularisation_cases A (SeveralLvls (lvli ::: lvlSi ::: yellows) p_wf rest)
   | general_case2b :
     forall B lvli lvlSi,
-    forall yellows : S.t ((A * A) * (A * A)) B,
-    forall p_wf1 : S.well_formed (lvli ::: []) false,
-    forall p_wf2 : S.well_formed (lvlSi ::: yellows) false,
+    forall yellows : Stack.t ((A * A) * (A * A)) B,
+    forall p_wf1 : Stack.well_formed (lvli ::: []) false,
+    forall p_wf2 : Stack.well_formed (lvlSi ::: yellows) false,
     forall rest : deque B,
     regularisation_cases A 
       (SeveralLvls (lvli ::: []) p_wf1
@@ -531,7 +532,7 @@ Proof.
   - simpl ; trivial.
   - simpl in *.
     rewrite <- Heq_anonymous in Hsr.
-    destruct (S.color s false) ; try assumption.
+    destruct (Stack.color s false) ; try assumption.
     destruct Hsr ; exfalso ; assumption.
 Qed.
 
@@ -570,10 +571,10 @@ Qed.
 
 Ltac trivial_cases :=
   match goal with
-  | [ H : S.well_formed ?top ?bool, jmeq : [] ~= ?top |- False ] =>
+  | [ H : Stack.well_formed ?top ?bool, jmeq : [] ~= ?top |- False ] =>
     apply JMeq_eq in jmeq ; subst ; assumption
-  | [ H : S.well_formed ?top ?bool, jmeq : ?lvl ::: ?yellows ~= ?top
-      |- S.all_yellows ?yellows ?bool
+  | [ H : Stack.well_formed ?top ?bool, jmeq : ?lvl ::: ?yellows ~= ?top
+      |- Stack.all_yellows ?yellows ?bool
     ] => apply JMeq_eq in jmeq ; subst ; assumption
   end.
 
@@ -592,7 +593,7 @@ Ltac destruct_lvl_color :=
 
 Ltac destruct_yellows :=
   match goal with
-  | [ H : S.well_formed (?lvl ::: ?Y) ?b
+  | [ H : Stack.well_formed (?lvl ::: ?Y) ?b
       |- Level.color ?lvl ?bool <> Red \/ Level.is_empty ?lvl
     ] =>
       let yellows := fresh in rename Y into yellows;
@@ -626,7 +627,7 @@ Program Definition push {A : Set} (elt : A) (d : deque A) (p : regular d) :
   | << top >> =>
     match top with
     | [] => !
-    | S.Cons X Y lvl yellows =>
+    | Stack.Cons X Y lvl yellows =>
       let elt := eq_rect A (fun T => T) elt X eq_refl in
       let is_last :=
         match yellows with
@@ -642,7 +643,7 @@ Program Definition push {A : Set} (elt : A) (d : deque A) (p : regular d) :
   | @SeveralLvls B top _ stacks =>
     match top with
     | [] => !
-    | S.Cons X Y lvl yellows =>
+    | Stack.Cons X Y lvl yellows =>
       let elt := eq_rect A (fun T => T) elt X eq_refl in
       let p := _ in
       let lvl := Level.push elt lvl false p in
@@ -671,7 +672,7 @@ Program Definition inject {A : Set} (elt : A) (d : deque A) (p : regular d) :
   | << top >> =>
     match top with
     | [] => !
-    | S.Cons X Y lvl yellows =>
+    | Stack.Cons X Y lvl yellows =>
       let elt := eq_rect A (fun T => T) elt X eq_refl in
       let is_last :=
         match yellows with
@@ -687,7 +688,7 @@ Program Definition inject {A : Set} (elt : A) (d : deque A) (p : regular d) :
   | @SeveralLvls B top _ stacks =>
     match top with
     | [] => !
-    | S.Cons X Y lvl yellows =>
+    | Stack.Cons X Y lvl yellows =>
       let elt := eq_rect A (fun T => T) elt X eq_refl in
       let p := _ in
       let lvl := Level.inject elt lvl false p in
@@ -709,14 +710,14 @@ Proof.
   subst lvl' ; apply Level.red_inject_iff_not_green in Hcol ; deduce_next_green.
 Qed.
 
-Program Definition pop {A : Set} (elt : A) (d : deque A) (p : regular d) :
+Program Definition pop {A : Set} (d : deque A) (p : regular d) :
   option (A * { d : deque A | regular d })
 :=
   match d with
   | << top >> =>
     match top with
     | [] => !
-    | S.Cons X Y lvl yellows =>
+    | Stack.Cons X Y lvl yellows =>
       match Level.dec_is_empty lvl with
       | left _ => None
       | right NotEmpty  =>
@@ -728,7 +729,7 @@ Program Definition pop {A : Set} (elt : A) (d : deque A) (p : regular d) :
   | @SeveralLvls B top _ stacks =>
     match top with
     | [] => !
-    | S.Cons X Y lvl yellows =>
+    | Stack.Cons X Y lvl yellows =>
       match Level.dec_is_empty lvl with
       | left _ => None
       | right NotEmpty  =>
@@ -752,14 +753,14 @@ Proof.
   subst lvl0 ; apply Level.red_pop_iff_not_green in Hcol ; deduce_next_green.
 Qed.
 
-Program Definition eject {A : Set} (elt : A) (d : deque A) (p : regular d) :
+Program Definition eject {A : Set} (d : deque A) (p : regular d) :
   option (A * { d : deque A | regular d })
 :=
   match d with
   | << top >> =>
     match top with
     | [] => !
-    | S.Cons X Y lvl yellows =>
+    | Stack.Cons X Y lvl yellows =>
       match Level.dec_is_empty lvl with
       | left _ => None
       | right NotEmpty  =>
@@ -771,7 +772,7 @@ Program Definition eject {A : Set} (elt : A) (d : deque A) (p : regular d) :
   | @SeveralLvls B top _ stacks =>
     match top with
     | [] => !
-    | S.Cons X Y lvl yellows =>
+    | Stack.Cons X Y lvl yellows =>
       match Level.dec_is_empty lvl with
       | left _ => None
       | right NotEmpty  =>

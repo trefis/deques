@@ -1,3 +1,5 @@
+all: build
+
 Misc.vo: Misc.v
 	coqc Misc.v
 
@@ -15,15 +17,18 @@ Deque.vo: Deque.v Misc.vo Buffer.vo Level.vo Stack.vo
 
 extract: Extractor.v Deque.vo
 	coqtop -l Extractor.v -batch
+	cp clean_mli Deque.mli
 
-all: Misc.vo Buffer.vo Level.vo Stack.vo Deque.vo
+build: extract
+	ocamlbuild Deque.cma
 
 refresh: Misc.vo Buffer.vo Level.vo Stack.vo
 
 clean:
+	ocamlbuild -clean
 	rm *.vo
 	rm *.glob
 	rm *.ml
 	rm *.mli
 
-.PHONY: refresh clean all extract
+.PHONY: refresh clean all extract build
