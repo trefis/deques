@@ -14,4 +14,4 @@ Extract Inductive nat => "int" [ "0" "succ" ]
 
 Extraction Blacklist Buffer Stack.
 
-Separate Extraction t dec_is_empty empty push pop inject eject.
+Separate Extraction t front_or_back dec_is_empty empty push pop.

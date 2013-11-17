@@ -4,8 +4,7 @@ val dec_is_empty : _ t -> bool
 
 val empty : 'a t
 
-val push : 'a -> 'a t -> 'a t
-val pop  : 'a t -> ('a * 'a t) option
+type front_or_back = Front | Back
 
-val inject : 'a -> 'a t -> 'a t
-val eject  : 'a t -> ('a * 'a t) option
+val push : 'a -> front_or_back -> 'a t -> 'a t
+val pop  : front_or_back -> 'a t -> ('a * 'a t) option

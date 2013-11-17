@@ -577,7 +577,17 @@ Local Obligation Tactic := (
   program_simpl ; try clean_jmeq ; try (assumption || destruct_yellows)
 ).
 
-Program Definition push {A : Set} (elt : A) (d : t A) (p : regular d) :
+Inductive front_or_back : Set := Front | Back.
+
+Definition push_helper {A : Set} (elt : A) (pos : front_or_back)
+  (lvl : Level.t A) (is_last : bool) p
+:=
+  match pos with
+  | Front => Level.push elt lvl is_last p
+  | Back  => Level.inject elt lvl is_last p
+  end.
+
+Program Definition push {A : Set} (elt : A) (pos : front_or_back) (d : t A) (p : regular d) :
   { d : t A | regular d }
 :=
   match d with
@@ -593,7 +603,7 @@ Program Definition push {A : Set} (elt : A) (d : t A) (p : regular d) :
         end
       in
       let p := _ in
-      let lvl := Level.push elt lvl is_last p in
+      let lvl := push_helper elt pos lvl is_last p in
       let d := << lvl ::: yellows >> in
       regularize d _
     end
@@ -603,7 +613,7 @@ Program Definition push {A : Set} (elt : A) (d : t A) (p : regular d) :
     | Stack.Cons X Y lvl yellows =>
       let elt := eq_rect A (fun T => T) elt X eq_refl in
       let p := _ in
-      let lvl := Level.push elt lvl false p in
+      let lvl := push_helper elt pos lvl false p in
       let stacks := eq_rect B t stacks Y eq_refl in
       let d := lvl ::: yellows ++ stacks in
       regularize d _
@@ -612,62 +622,27 @@ Program Definition push {A : Set} (elt : A) (d : t A) (p : regular d) :
 
 Next Obligation.
 Proof.
-  remember (Level.push _ lvl false _) as lvl' ; simpl.
+  remember (push_helper _ pos lvl false _) as lvl' ; simpl.
   assert (Hgbr : green_between_reds stacks) by
     (simpl in p ; clear Heqlvl' lvl';
     dependent destruction yellows ; destruct (Level.color lvl false) ;
     simpl in p ; firstorder).
+  destruct pos ;
   dependent destruction yellows; destruct (Level.color lvl' false) eqn:Hcol ;
   try solve [ trivial | (split ; trivial) ] ; (split ; [ .. | trivial ]);
-  subst lvl' ; apply Level.red_push_iff_yellow in Hcol ; deduce_next_green.
+  subst lvl' ; (
+    apply Level.red_push_iff_yellow in Hcol ||
+    apply Level.red_inject_iff_not_green in Hcol
+  ) ; deduce_next_green.
 Qed.
 
-Program Definition inject {A : Set} (elt : A) (d : t A) (p : regular d) :
-  { d : t A | regular d }
-:=
-  match d with
-  | << top >> =>
-    match top with
-    | [] => !
-    | Stack.Cons X Y lvl yellows =>
-      let elt := eq_rect A (fun T => T) elt X eq_refl in
-      let is_last :=
-        match yellows with
-        | [] => true
-        | _ ::: _ => false
-        end
-      in
-      let p := _ in
-      let lvl := Level.inject elt lvl is_last p in
-      let d := << lvl ::: yellows >> in
-      regularize d _
-    end
-  | @SeveralLvls B top _ stacks =>
-    match top with
-    | [] => !
-    | Stack.Cons X Y lvl yellows =>
-      let elt := eq_rect A (fun T => T) elt X eq_refl in
-      let p := _ in
-      let lvl := Level.inject elt lvl false p in
-      let stacks := eq_rect B t stacks Y eq_refl in
-      let d := lvl ::: yellows ++ stacks in
-      regularize d _
-    end
+Definition pop_helper {A : Set} (pos : front_or_back) (lvl : Level.t A) p :=
+  match pos with
+  | Front => Level.pop lvl p
+  | Back  => Level.eject lvl p
   end.
 
-Next Obligation.
-Proof.
-  remember (Level.inject _ lvl false _) as lvl' ; simpl.
-  assert (Hgbr : green_between_reds stacks) by
-    (simpl in p ; clear Heqlvl' lvl';
-    dependent destruction yellows ; destruct (Level.color lvl false) ;
-    simpl in p ; firstorder).
-  dependent destruction yellows; destruct (Level.color lvl' false) eqn:Hcol ;
-  try solve [ trivial | (split ; trivial) ] ; (split ; [ .. | trivial ]);
-  subst lvl' ; apply Level.red_inject_iff_not_green in Hcol ; deduce_next_green.
-Qed.
-
-Program Definition pop {A : Set} (d : t A) (p : regular d) :
+Program Definition pop {A : Set} pos (d : t A) (p : regular d) :
   option (A * { d : t A | regular d })
 :=
   match d with
@@ -678,7 +653,7 @@ Program Definition pop {A : Set} (d : t A) (p : regular d) :
       match Level.dec_is_empty lvl with
       | left _ => None
       | right NotEmpty  =>
-        let (elt, lvl) := Level.pop lvl NotEmpty in
+        let (elt, lvl) := pop_helper pos lvl NotEmpty in
         let d := << lvl ::: yellows >> in
         Some (elt, regularize d _)
       end
@@ -690,7 +665,7 @@ Program Definition pop {A : Set} (d : t A) (p : regular d) :
       match Level.dec_is_empty lvl with
       | left _ => None
       | right NotEmpty  =>
-        let pair := Level.pop lvl NotEmpty in
+        let pair := pop_helper pos lvl NotEmpty in
         let stacks := eq_rect B t stacks Y eq_refl in
         let d := (snd pair) ::: yellows ++ stacks in
         Some (fst pair, regularize d _)
@@ -700,55 +675,16 @@ Program Definition pop {A : Set} (d : t A) (p : regular d) :
 
 Next Obligation.
 Proof.
-  remember (snd (Level.pop lvl NotEmpty)) as lvl0 ; simpl.
+  remember (snd (pop_helper pos lvl NotEmpty)) as lvl0 ; simpl.
   assert (Hgbr : green_between_reds stacks) by
     (simpl in p ;
     dependent destruction yellows ; destruct (Level.color lvl false) ;
     simpl in p ; firstorder).
+  destruct pos;
   dependent destruction yellows ; destruct (Level.color lvl0 false) eqn:Hcol;
   try solve [ trivial | (split ; trivial) ] ; (split ; [ .. | trivial ]) ;
-  subst lvl0 ; apply Level.red_pop_iff_not_green in Hcol ; deduce_next_green.
-Qed.
-
-Program Definition eject {A : Set} (d : t A) (p : regular d) :
-  option (A * { d : t A | regular d })
-:=
-  match d with
-  | << top >> =>
-    match top with
-    | [] => !
-    | Stack.Cons X Y lvl yellows =>
-      match Level.dec_is_empty lvl with
-      | left _ => None
-      | right NotEmpty  =>
-        let (elt, lvl) := Level.eject lvl NotEmpty in
-        let d := << lvl ::: yellows >> in
-        Some (elt, regularize d _)
-      end
-    end
-  | @SeveralLvls B top _ stacks =>
-    match top with
-    | [] => !
-    | Stack.Cons X Y lvl yellows =>
-      match Level.dec_is_empty lvl with
-      | left _ => None
-      | right NotEmpty  =>
-        let pair := Level.eject lvl NotEmpty in
-        let stacks := eq_rect B t stacks Y eq_refl in
-        let d := (snd pair) ::: yellows ++ stacks in
-        Some (fst pair, regularize d _)
-      end
-    end
-  end.
-
-Next Obligation.
-Proof.
-  remember (snd (Level.eject lvl NotEmpty)) as lvl0 ; simpl.
-  assert (Hgbr : green_between_reds stacks) by
-    (simpl in p ;
-    dependent destruction yellows ; destruct (Level.color lvl false) ;
-    simpl in p ; firstorder).
-  dependent destruction yellows ; destruct (Level.color lvl0 false) eqn:Hcol;
-  try solve [ trivial | (split ; trivial) ] ; (split ; [ .. | trivial ]) ;
-  subst lvl0 ; apply Level.red_eject_iff_not_green in Hcol ; deduce_next_green.
+  subst lvl0 ; (
+    apply Level.red_pop_iff_not_green in Hcol ||
+    apply Level.red_eject_iff_not_green in Hcol
+  ) ; deduce_next_green.
 Qed.
